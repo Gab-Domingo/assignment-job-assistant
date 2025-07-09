@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from agents import ResumeAnalyzer
+from agents import ResumeAnalyzer, AnswerGenerator
 from models import UserProfile
 from models import JobSearchParams
 
@@ -22,6 +22,23 @@ async def analyze_resume():
             job_params=job_params,
             application_question=application_question
         )
+
+        return jsonify(result.dict())
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/generate_answer', methods=['POST'])
+async def generate_answer():
+    try:
+        data = request.json
+        user_profile = UserProfile(**data['user_profile'])
+        job_params = JobSearchParams(**data['job_params'])
+        application_question = data.get('application_question')
+        user_answer = data.get('user_answer')
+
+        answer_generator = AnswerGenerator()
+        result = await answer_generator.generate_answer(user_profile, job_params, application_question, user_answer)
 
         return jsonify(result.dict())
 

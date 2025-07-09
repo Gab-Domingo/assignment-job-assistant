@@ -63,7 +63,7 @@ class TailoredElements(BaseModel):
 class AnswerMetadata(BaseModel):
     generation_timestamp: datetime
     question_id: str
-    job_id: str
+    job_id: Optional[str] = None
 
 class GeneratedAnswer(BaseModel):
     text: str

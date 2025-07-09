@@ -104,6 +104,7 @@ class ResumeAnalyzer:
                 gaps=parsed_response['gaps'],
                 metadata={
                     'job_title': job_scraped_data.job_title,
+                    'job_description': job_scraped_data.job_description,
                     'analysis_timestamp': datetime.now().isoformat()
                 }
             )

@@ -62,6 +62,7 @@ class AnswerGenerator:
             # Convert initial answer to GeneratedAnswer format
             initial_answer = GeneratedAnswer(
                 text=initial_answer_dict["answer"],
+                word_count=len(initial_answer_dict["answer"].split()),
                 key_points_addressed=initial_answer_dict["key_points"],
                 tailored_elements=TailoredElements(
                     skills_mentioned=initial_answer_dict["profile_elements_used"],
@@ -71,7 +72,7 @@ class AnswerGenerator:
                 metadata=AnswerMetadata(
                     generation_timestamp=datetime.now(),
                     question_id=question.question_id,
-                    job_id=question.job_id
+                    job_id=None
                 )
             )
             
@@ -86,6 +87,7 @@ class AnswerGenerator:
             # Create final structured response
             return GeneratedAnswer(
                 text=improved_answer["final_answer"],
+                word_count=len(improved_answer["final_answer"].split()),
                 key_points_addressed=improved_answer["key_points"],
                 tailored_elements=TailoredElements(
                     skills_mentioned=improved_answer["skills_referenced"],
@@ -95,7 +97,7 @@ class AnswerGenerator:
                 metadata=AnswerMetadata(
                     generation_timestamp=datetime.now(),
                     question_id=question.question_id,
-                    job_id=question.job_id
+                    job_id=None
                 )
             )
             
@@ -120,7 +122,7 @@ class AnswerGenerator:
             Dict containing the generated answer and metadata
         """
         try:
-            prompt = await get_answer_generation_prompt(
+            prompt = get_answer_generation_prompt(
                 profile=profile,
                 question=question,
                 resume_analysis_result=resume_analysis_result,
@@ -176,7 +178,7 @@ class AnswerGenerator:
             Dict containing the improved answer and metadata
         """
         try:
-            prompt = await get_answer_validation_prompt(
+            prompt = get_answer_validation_prompt(
                 profile=profile,
                 resume_analysis_result=resume_analysis_result,
                 answer=answer,

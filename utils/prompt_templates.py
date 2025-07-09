@@ -171,7 +171,7 @@ def get_improvement_plan_prompt(analysis_result: ResumeAnalysisResult) -> str:
 
 # TODO: fix prompt to use resume analysis result
 
-async def get_answer_generation_prompt(
+def get_answer_generation_prompt(
     profile: UserProfile,
     question: ApplicationQuestion,
     resume_analysis_result: ResumeAnalysisResult,
@@ -193,8 +193,8 @@ async def get_answer_generation_prompt(
     
     # Create and serialize job data properly
     job_data = ScrapedJobData(
-        job_title=resume_analysis_result.job_title,
-        job_description=resume_analysis_result.job_description
+        job_title=resume_analysis_result.metadata.get('job_title', ''),
+        job_description=resume_analysis_result.metadata.get('job_description', '')
     )
     job_data_dict = serialize_for_prompt(job_data)  # Use the helper function
     
