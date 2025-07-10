@@ -14,7 +14,7 @@ from agents.resume_agent import ResumeAnalyzer
 import json
 
 
-#TODO: fix workflow diagram and improve answer validation
+#TODO: add resume analysis result to the output
 
 class AnswerGenerator:
     def __init__(self):
@@ -32,7 +32,7 @@ class AnswerGenerator:
         question: ApplicationQuestion,
         user_answer: Optional[GeneratedAnswer] = None,
         job_data: Optional[ResumeAnalysisResult] = None
-    ) -> GeneratedAnswer:
+    ) -> Tuple[GeneratedAnswer, ResumeAnalysisResult]:
         """
         Generate personalized answer to application question
         Args:
@@ -40,8 +40,11 @@ class AnswerGenerator:
             job_params: Job search parameters
             question: Application question to answer
             user_answer: Optional user's answer in GeneratedAnswer format
+            job_data: Optional pre-analyzed resume data
         Returns:
-            GeneratedAnswer: Structured answer with metadata
+            Tuple containing:
+            - GeneratedAnswer: Structured answer with metadata
+            - ResumeAnalysisResult: Analysis of resume against job requirements
         """
         try:
             # Get resume analysis
@@ -85,7 +88,7 @@ class AnswerGenerator:
             )
             
             # Create final structured response
-            return GeneratedAnswer(
+            final_answer = GeneratedAnswer(
                 text=improved_answer["final_answer"],
                 word_count=len(improved_answer["final_answer"].split()),
                 key_points_addressed=improved_answer["key_points"],
@@ -100,6 +103,8 @@ class AnswerGenerator:
                     job_id=None
                 )
             )
+            
+            return resume_analysis_result, final_answer
             
         except Exception as e:
             raise Exception(f"Answer generation failed: {str(e)}")

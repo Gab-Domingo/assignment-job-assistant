@@ -65,7 +65,17 @@ class AnswerMetadata(BaseModel):
     question_id: str
     job_id: Optional[str] = None
 
+class ResumeAnalysisResult(BaseModel):
+    match_score: int
+    suggestions: List[str]
+    gaps: List[str]
+    key_matches: List[str]
+    metadata: Dict = {}
+    job_title: Optional[str] = None
+    job_description: Optional[str] = None
+
 class GeneratedAnswer(BaseModel):
+    resume_analysis: Optional[ResumeAnalysisResult] = None
     text: str
     word_count: int
     key_points_addressed: List[str]
@@ -78,13 +88,6 @@ class JobPosting(BaseModel):
 class ScrapedJobData(BaseModel):
     job_title: str
     job_description: str
-
-class ResumeAnalysisResult(BaseModel):
-    match_score: int
-    suggestions: List[str]
-    gaps: List[str]
-    key_matches: List[str]
-    metadata: Dict = {}
 
 class JobSearchParams(BaseModel):
     job_title: Optional[str] = None
