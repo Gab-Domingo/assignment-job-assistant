@@ -50,7 +50,7 @@ def construct_indeed_url(job_title: str, location: str, country_code: str = 'ph'
 async def scrape_indeed_jobs(
     url: Optional[str] = None,
     search_params: Optional[JobSearchParams] = None,
-    max_rows: int = 1
+    max_rows: int = 5
 ) -> Union[ScrapedJobData, dict]:
     """
     Scrape Indeed jobs using either a direct URL or job search parameters.
@@ -200,39 +200,3 @@ async def scrape_indeed_jobs(
         if 'conn' in locals():
             conn.close()
 
-# Update example usage
-if __name__ == "__main__":
-  
-    
-    
-    #async def test_scraper():
-     # Test with URL
-    #    url_params = JobSearchParams(
-    #        url="https://ph.indeed.com/jobs?q=engineer&l=Makati"
-    #    )
-        
-        # Test with job title and location
-        #search_params = JobSearchParams(
-            #job_title="Python Developer",
-            #location="Manila"
-        #)
-        
-    #    if not os.getenv("APIFY_TOKEN"):
-    #        print("Please set your APIFY_TOKEN environment variable first!")
-    #        return
-            
-    #    # Test URL-based search
-    #    print(f"Starting scrape for URL: {url_params.url}")
-    #    result1 = await scrape_indeed_jobs(search_params=url_params)
-    #    print("URL-based Result:", 
-    #          result1.dict() if isinstance(result1, ScrapedJobData) else result1)
-        
-        # Test parameter-based search
-        #print(f"\nStarting scrape for Job: {search_params.job_title} in {search_params.location}")
-        #result2 = await scrape_indeed_jobs(search_params=search_params)
-        #print("Parameter-based Result:", 
-        #      result2.dict() if isinstance(result2, ScrapedJobData) else result2)
-
-    #asyncio.run(test_scraper())
-
-    scrape_indeed_jobs(url="https://ph.indeed.com/jobs?q=engineer&l=Makati")
