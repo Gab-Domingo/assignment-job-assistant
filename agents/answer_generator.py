@@ -12,9 +12,6 @@ from utils.prompt_templates import get_answer_generation_prompt, get_answer_vali
 from agents.resume_agent import ResumeAnalyzer
 import json
 
-
-#TODO: add resume analysis result to the output
-
 class AnswerGenerator:
     def __init__(self):
         load_dotenv()
