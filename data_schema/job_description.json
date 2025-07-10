@@ -1,0 +1,8 @@
+{
+    "url": "string",
+    
+    "search_params": {
+        "job_title": "string",
+        "location": "string"
+    }
+}

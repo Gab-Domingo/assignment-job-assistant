@@ -1,0 +1,49 @@
+{
+    "personal_info": {
+        "full_name": "string",
+        "email": "string",
+        "location": "string",
+        "professional_summary": "string"
+    },
+    "work_history": [
+        {
+            "company": "string",
+            "title": "string",
+            "start_date": "string (YYYY-MM)",
+            "end_date": "string (YYYY-MM) or 'Present'",
+            "description": "string",
+            "achievements": ["string"]
+        }
+    ],
+    "education": [
+        {
+            "institution": "string",
+            "degree": "string",
+            "field_of_study": "string",
+            "graduation_date": "string (YYYY-MM)",
+            "gpa": "number (optional)",
+            "relevant_coursework": ["string"]
+        }
+    ],
+    "skills": {
+        "technical": ["string"],
+        "soft": ["string"],
+        "certifications": [
+            {
+                "name": "string",
+                "issuer": "string",
+                "date": "string (YYYY-MM)",
+                "expires": "string (YYYY-MM) (optional)"
+            }
+        ]
+    },
+    "projects": [
+        {
+            "name": "string",
+            "description": "string",
+            "technologies": ["string"],
+            "url": "string (optional)"
+        }
+    ]
+}
+

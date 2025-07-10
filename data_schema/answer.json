@@ -1,0 +1,17 @@
+{
+        "answer": {
+        "text": "string",
+        "word_count": "number",
+        "key_points_addressed": ["string"],
+        "tailored_elements": {
+            "skills_mentioned": ["string"],
+            "experience_highlighted": ["string"],
+            "achievements_referenced": ["string"]
+        }
+    },
+    "metadata": {
+        "generation_timestamp": "string (ISO format)",
+        "question_id": "string",
+        "job_id": "string"
+    }
+}

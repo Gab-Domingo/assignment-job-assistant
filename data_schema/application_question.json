@@ -1,0 +1,7 @@
+{
+    "question_id": "string",
+    "question_text": "string",
+    "question_type": "string (e.g., 'fit', 'experience', 'motivation')",
+    "max_length": "number (optional)",
+    "context": "string (optional)"
+}
