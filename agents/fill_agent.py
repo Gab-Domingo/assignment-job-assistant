@@ -1,9 +1,9 @@
 import json
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict
 from pydantic import ValidationError
 from models.user_profile import (
     UserProfile, PersonalInfo, WorkExperience,
-    Education, Skills, Project, Certification
+    Education, Skills, Project
 )
 from utils.prompt_templates import get_profile_validation_prompt
 from openai import AzureOpenAI

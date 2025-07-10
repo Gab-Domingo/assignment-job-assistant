@@ -1,11 +1,9 @@
-from typing import Dict, List, Optional, Any
+from typing import Dict
 from datetime import datetime
-from pydantic import ValidationError, BaseModel
 from models.user_profile import (
-    UserProfile, ApplicationQuestion, GeneratedAnswer,
-    TailoredElements, AnswerMetadata, ScrapedJobData, JobSearchParams, ResumeAnalysisResult
+    UserProfile, ScrapedJobData, JobSearchParams, ResumeAnalysisResult
 )
-from utils.prompt_templates import get_answer_generation_prompt, get_answer_validation_prompt, get_resume_analysis_prompt
+from utils.prompt_templates import get_resume_analysis_prompt
 from openai import AzureOpenAI
 from dotenv import load_dotenv
 import os

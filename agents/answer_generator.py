@@ -2,13 +2,12 @@ import os
 from openai import AzureOpenAI
 from dotenv import load_dotenv
 from datetime import datetime
-from typing import Optional, Dict, List, Tuple, Any
+from typing import Optional, Dict, Tuple, Any
 from models.user_profile import (
     UserProfile, JobSearchParams, ApplicationQuestion,
     GeneratedAnswer, TailoredElements, AnswerMetadata,
-    ScrapedJobData, ResumeAnalysisResult
+     ResumeAnalysisResult
 )
-from scraper import scrape_indeed_jobs
 from utils.prompt_templates import get_answer_generation_prompt, get_answer_validation_prompt
 from agents.resume_agent import ResumeAnalyzer
 import json
