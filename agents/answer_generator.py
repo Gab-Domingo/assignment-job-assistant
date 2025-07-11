@@ -28,7 +28,7 @@ class AnswerGenerator:
         question: ApplicationQuestion,
         user_answer: Optional[GeneratedAnswer] = None,
         job_data: Optional[ResumeAnalysisResult] = None
-    ) -> Tuple[GeneratedAnswer, ResumeAnalysisResult]:
+    ) -> Dict[str, Any]:
         """
         Generate personalized answer to application question
         Args:
@@ -42,6 +42,7 @@ class AnswerGenerator:
             - GeneratedAnswer: Structured answer with metadata
             - ResumeAnalysisResult: Analysis of resume against job requirements
         """
+        
         try:
             # Get resume analysis
             resume_agent = ResumeAnalyzer()
@@ -98,9 +99,10 @@ class AnswerGenerator:
                     question_id=question.question_id,
                     job_id=None
                 )
-            )
-            
-            return resume_analysis_result, final_answer
+            )            
+            return {
+                "final_answer": final_answer
+            }
             
         except Exception as e:
             raise Exception(f"Answer generation failed: {str(e)}")
@@ -122,6 +124,7 @@ class AnswerGenerator:
         Returns:
             Dict containing the generated answer and metadata
         """
+        print("\n=== Generating Initial Answer ===")
         try:
             prompt = get_answer_generation_prompt(
                 profile=profile,
@@ -178,6 +181,7 @@ class AnswerGenerator:
         Returns:
             Dict containing the improved answer and metadata
         """
+        print("\n=== Validating and Improving Answer ===")
         try:
             prompt = get_answer_validation_prompt(
                 profile=profile,
@@ -185,7 +189,6 @@ class AnswerGenerator:
                 answer=answer,
                 question=question
             )
-            
             response = self.client.chat.completions.create(
                 model=os.getenv("model_name"),
                 messages=[

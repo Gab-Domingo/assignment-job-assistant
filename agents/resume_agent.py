@@ -106,7 +106,8 @@ class ResumeAnalyzer:
                     'analysis_timestamp': datetime.now().isoformat()
                 }
             )
-
+            print("\n=== Analyzing Resume and JD ===")
+            print(result)
             return result
 
         except Exception as e:

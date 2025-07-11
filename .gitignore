@@ -33,9 +33,9 @@ ENV/
 .DS_Store
 
 # Project specific
-data/*.json
 *.log
 .env
+.env.local
 
 # Jupyter Notebook
 .ipynb_checkpoints
