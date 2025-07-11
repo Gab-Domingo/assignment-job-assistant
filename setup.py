@@ -1,6 +1,4 @@
-# Create setup.py in the root directory of your project
 from setuptools import setup, find_packages
-
 setup(
     name="apify_scraper",
     version="0.1",
