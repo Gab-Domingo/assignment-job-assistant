@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Job Assistant - Resume Analysis & Answer Generation</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🚀 AI Job Assistant</h1>
+            <p class="subtitle">Resume OCR • Job Analysis • Answer Generation</p>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <div class="tabs">
+            <button class="tab-button active" onclick="showTab('upload')">📄 Upload Resume</button>
+            <button class="tab-button" onclick="showTab('analyze')">📊 Analyze Job Match</button>
+            <button class="tab-button" onclick="showTab('generate')">✍️ Generate Answer</button>
+            <button class="tab-button" onclick="showTab('workflow')">🔄 Complete Workflow</button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="tab-content">
+            <!-- Upload Resume Tab -->
+            <div id="upload-tab" class="tab-panel active">
+                <h2>Upload Resume (OCR)</h2>
+                <p class="description">Upload your resume (PDF or image) to extract structured profile data using OCR.</p>
+                
+                <div class="form-section">
+                    <div class="file-upload-area" id="uploadArea">
+                        <input type="file" id="resumeFile" accept=".pdf,.png,.jpg,.jpeg,.tiff,.bmp" onchange="handleFileSelect(event)">
+                        <label for="resumeFile">
+                            <div class="upload-icon">📁</div>
+                            <p class="upload-text">Click to upload or drag and drop</p>
+                            <p class="upload-hint">Supported: PDF, PNG, JPG, JPEG, TIFF, BMP</p>
+                        </label>
+                    </div>
+                    
+                    <div class="checkbox-group">
+                        <label>
+                            <input type="checkbox" id="detailedUpload" checked>
+                            Show detailed metadata (OCR confidence, processing info)
+                        </label>
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="uploadResume()" id="uploadBtn" disabled>
+                        Upload & Extract
+                    </button>
+                </div>
+
+                <div id="uploadResult" class="result-section" style="display: none;">
+                    <h3>Extraction Results</h3>
+                    <div id="uploadResultContent"></div>
+                </div>
+            </div>
+
+            <!-- Analyze Job Match Tab -->
+            <div id="analyze-tab" class="tab-panel">
+                <h2>Analyze Resume Against Job</h2>
+                <p class="description">Analyze how well your profile matches a job posting.</p>
+                
+                <div class="form-section">
+                    <div class="profile-source">
+                        <label>
+                            <input type="radio" name="profileSource" value="upload" checked onchange="toggleProfileSource()">
+                            Use uploaded resume
+                        </label>
+                        <label>
+                            <input type="radio" name="profileSource" value="manual" onchange="toggleProfileSource()">
+                            Enter profile manually (JSON)
+                        </label>
+                    </div>
+
+                    <div id="manualProfileSection" style="display: none;">
+                        <label for="manualProfile">User Profile (JSON):</label>
+                        <textarea id="manualProfile" rows="10" placeholder='{"personal_info": {...}, "education": [...], ...}'></textarea>
+                    </div>
+
+                    <h3>Job Details</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="jobTitle">Job Title:</label>
+                            <input type="text" id="jobTitle" placeholder="e.g., Senior Software Engineer">
+                        </div>
+                        <div class="form-group">
+                            <label for="jobLocation">Location:</label>
+                            <input type="text" id="jobLocation" placeholder="e.g., San Francisco, CA">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Or use Job URL:</label>
+                        <input type="url" id="jobUrl" placeholder="https://...">
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="analyzeJob()">
+                        Analyze Match
+                    </button>
+                </div>
+
+                <div id="analyzeResult" class="result-section" style="display: none;">
+                    <h3>Analysis Results</h3>
+                    <div id="analyzeResultContent"></div>
+                </div>
+            </div>
+
+            <!-- Generate Answer Tab -->
+            <div id="generate-tab" class="tab-panel">
+                <h2>Generate Application Answer</h2>
+                <p class="description">Generate tailored answers to application questions.</p>
+                
+                <div class="form-section">
+                    <div class="profile-source">
+                        <label>
+                            <input type="radio" name="profileSourceGen" value="upload" checked>
+                            Use uploaded resume
+                        </label>
+                        <label>
+                            <input type="radio" name="profileSourceGen" value="manual">
+                            Enter profile manually (JSON)
+                        </label>
+                    </div>
+
+                    <h3>Job Details</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="jobTitleGen">Job Title:</label>
+                            <input type="text" id="jobTitleGen" placeholder="e.g., Software Engineer">
+                        </div>
+                        <div class="form-group">
+                            <label for="jobLocationGen">Location:</label>
+                            <input type="text" id="jobLocationGen" placeholder="e.g., New York, NY">
+                        </div>
+                    </div>
+
+                    <h3>Application Question</h3>
+                    <div class="form-group">
+                        <label for="questionText">Question:</label>
+                        <textarea id="questionText" rows="3" placeholder="e.g., Why do you want to work at our company?"></textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="questionType">Question Type:</label>
+                            <select id="questionType">
+                                <option value="essay">Essay</option>
+                                <option value="short_answer">Short Answer</option>
+                                <option value="cover_letter">Cover Letter</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="maxLength">Max Length (words):</label>
+                            <input type="number" id="maxLength" value="500" min="50" max="1000">
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="generateAnswer()">
+                        Generate Answer
+                    </button>
+                </div>
+
+                <div id="generateResult" class="result-section" style="display: none;">
+                    <h3>Generated Answer</h3>
+                    <div id="generateResultContent"></div>
+                </div>
+            </div>
+
+            <!-- Complete Workflow Tab -->
+            <div id="workflow-tab" class="tab-panel">
+                <h2>Complete Application Workflow</h2>
+                <p class="description">Upload resume, analyze job match, and generate answer all in one go.</p>
+                
+                <div class="form-section">
+                    <h3>Step 1: Upload Resume</h3>
+                    <div class="file-upload-area" id="workflowUploadArea">
+                        <input type="file" id="workflowResumeFile" accept=".pdf,.png,.jpg,.jpeg,.tiff,.bmp" onchange="handleWorkflowFileSelect(event)">
+                        <label for="workflowResumeFile">
+                            <div class="upload-icon">📁</div>
+                            <p class="upload-text">Click to upload resume</p>
+                        </label>
+                    </div>
+
+                    <h3>Step 2: Job Details</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="workflowJobTitle">Job Title:</label>
+                            <input type="text" id="workflowJobTitle" placeholder="e.g., Product Manager">
+                        </div>
+                        <div class="form-group">
+                            <label for="workflowJobLocation">Location:</label>
+                            <input type="text" id="workflowJobLocation" placeholder="e.g., Remote">
+                        </div>
+                    </div>
+
+                    <h3>Step 3: Application Question</h3>
+                    <div class="form-group">
+                        <label for="workflowQuestion">Question:</label>
+                        <textarea id="workflowQuestion" rows="3" placeholder="e.g., Tell us about your experience with product development"></textarea>
+                    </div>
+                    
+                    <button class="btn btn-success" onclick="runCompleteWorkflow()">
+                        🚀 Run Complete Workflow
+                    </button>
+                </div>
+
+                <div id="workflowProgress" class="progress-section" style="display: none;">
+                    <div class="progress-step" id="step1">
+                        <span class="step-icon">⏳</span>
+                        <span class="step-text">Uploading and extracting resume...</span>
+                    </div>
+                    <div class="progress-step" id="step2">
+                        <span class="step-icon">⏳</span>
+                        <span class="step-text">Analyzing job match...</span>
+                    </div>
+                    <div class="progress-step" id="step3">
+                        <span class="step-icon">⏳</span>
+                        <span class="step-text">Generating answer...</span>
+                    </div>
+                </div>
+
+                <div id="workflowResult" class="result-section" style="display: none;">
+                    <h3>Workflow Results</h3>
+                    <div id="workflowResultContent"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Powered by Google Gemini AI & Google Cloud Vision API</p>
+            <p class="footer-links">
+                <a href="/docs" target="_blank">API Docs</a> •
+                <a href="https://github.com" target="_blank">GitHub</a>
+            </p>
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>Processing...</p>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
+

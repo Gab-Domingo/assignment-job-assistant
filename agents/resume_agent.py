@@ -4,7 +4,8 @@ from models.user_profile import (
     UserProfile, ScrapedJobData, JobSearchParams, ResumeAnalysisResult
 )
 from utils.prompt_templates import get_resume_analysis_prompt
-from openai import AzureOpenAI
+import google.genai as genai
+from google.genai import types
 from dotenv import load_dotenv
 import os
 import json
@@ -14,11 +15,8 @@ from scraper import scrape_indeed_jobs
 class ResumeAnalyzer:
     def __init__(self):
         load_dotenv()
-        self.client = AzureOpenAI(
-            api_key=os.getenv("AZURE_KEY"),
-            api_version="2024-05-01-preview",
-            azure_endpoint=os.getenv("AZURE_ENDPOINT")
-        )
+        self.client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+        self.model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp")
         
     async def analyze_resume_and_jd(
         self,
@@ -74,21 +72,21 @@ class ResumeAnalyzer:
             )
 
             # 3. Call LLM for analysis
-            response = self.client.chat.completions.create(
-                model=os.getenv("model_name"),
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a resume analysis expert. You MUST respond with ONLY a valid JSON object, with no additional text, explanations, or XML tags."
-                    },
-                    {"role": "user", "content": prompt}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.7
+            full_prompt = f"""You are a resume analysis expert. You MUST respond with ONLY a valid JSON object, with no additional text, explanations, or XML tags.
+
+{prompt}"""
+            
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=full_prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.7,
+                    response_mime_type="application/json"
+                )
             )
             
             # 4. Parse and validate response
-            llm_response = response.choices[0].message.content
+            llm_response = response.text
             #print("Raw LLM Response:", llm_response)
             
             # 5. Parse response
