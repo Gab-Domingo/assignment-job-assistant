@@ -26,8 +26,8 @@ class Education(BaseModel):
 
 class Certification(BaseModel):
     name: str
-    issuer: str
-    date: str
+    issuer: Optional[str] = None
+    date: Optional[str] = None
     expires: Optional[str] = None
 
 class Skills(BaseModel):
