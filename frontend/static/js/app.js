@@ -1,7 +1,7 @@
 // ===== Global State =====
-let uploadedProfile = null;
+let candidates = [];
 let selectedFile = null;
-let workflowFile = null;
+let selectedBatchFiles = [];
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -18,6 +18,30 @@ function showTab(tabName) {
     // Show selected tab
     document.getElementById(`${tabName}-tab`).classList.add('active');
     event.target.classList.add('active');
+    
+    // Load data when switching to certain tabs
+    if (tabName === 'candidates') {
+        loadCandidates();
+    } else if (tabName === 'analyze') {
+        populateCandidateDropdown();
+    } else if (tabName === 'analytics') {
+        populateCandidateCheckboxes();
+    }
+}
+
+// ===== Upload Mode Toggle =====
+function toggleUploadMode() {
+    const mode = document.querySelector('input[name="uploadMode"]:checked').value;
+    const singleSection = document.getElementById('singleUploadSection');
+    const batchSection = document.getElementById('batchUploadSection');
+    
+    if (mode === 'single') {
+        singleSection.style.display = 'block';
+        batchSection.style.display = 'none';
+    } else {
+        singleSection.style.display = 'none';
+        batchSection.style.display = 'block';
+    }
 }
 
 // ===== File Upload Handling =====
@@ -30,11 +54,12 @@ function handleFileSelect(event) {
     }
 }
 
-function handleWorkflowFileSelect(event) {
-    const file = event.target.files[0];
-    if (file) {
-        workflowFile = file;
-        showFileSelected('workflowUploadArea', file.name);
+function handleBatchFileSelect(event) {
+    const files = Array.from(event.target.files);
+    if (files.length > 0) {
+        selectedBatchFiles = files;
+        showFileSelected('batchUploadArea', `${files.length} file(s) selected`);
+        document.getElementById('batchUploadBtn').disabled = false;
     }
 }
 
@@ -69,39 +94,28 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             area.classList.remove('drag-over');
             
-            const file = e.dataTransfer.files[0];
+            const files = e.dataTransfer.files;
             const input = area.querySelector('input[type="file"]');
             
-            if (file && input) {
+            if (files && input) {
                 const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
+                for (let file of files) {
+                    dataTransfer.items.add(file);
+                }
                 input.files = dataTransfer.files;
                 
                 if (input.id === 'resumeFile') {
                     handleFileSelect({ target: input });
-                } else if (input.id === 'workflowResumeFile') {
-                    handleWorkflowFileSelect({ target: input });
+                } else if (input.id === 'batchResumeFiles') {
+                    handleBatchFileSelect({ target: input });
                 }
             }
         });
     });
 });
 
-// ===== Profile Source Toggle =====
-function toggleProfileSource() {
-    const source = document.querySelector('input[name="profileSource"]:checked').value;
-    const manualSection = document.getElementById('manualProfileSection');
-    
-    if (source === 'manual') {
-        manualSection.style.display = 'block';
-    } else {
-        manualSection.style.display = 'none';
-    }
-}
-
 // ===== API Calls =====
 
-// Show/hide loading overlay
 function showLoading() {
     document.getElementById('loadingOverlay').style.display = 'flex';
 }
@@ -110,15 +124,12 @@ function hideLoading() {
     document.getElementById('loadingOverlay').style.display = 'none';
 }
 
-// Upload Resume
+// Upload Single Resume
 async function uploadResume() {
     if (!selectedFile) {
         showAlert('uploadResult', 'Please select a file first', 'error');
         return;
     }
-    
-    const detailed = document.getElementById('detailedUpload').checked;
-    const endpoint = detailed ? '/upload_resume_detailed' : '/upload_resume';
     
     showLoading();
     
@@ -126,7 +137,7 @@ async function uploadResume() {
         const formData = new FormData();
         formData.append('file', selectedFile);
         
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        const response = await fetch(`${API_BASE_URL}/api/candidates/upload`, {
             method: 'POST',
             body: formData
         });
@@ -134,13 +145,8 @@ async function uploadResume() {
         const data = await response.json();
         
         if (response.ok) {
-            if (detailed) {
-                uploadedProfile = data.profile;
-                displayDetailedUploadResult(data);
-            } else {
-                uploadedProfile = data;
-                displaySimpleUploadResult(data);
-            }
+            candidates.push(data);
+            displayUploadResult(data, 1, 0);
         } else {
             showAlert('uploadResult', `Error: ${data.detail || 'Upload failed'}`, 'error');
         }
@@ -151,175 +157,211 @@ async function uploadResume() {
     }
 }
 
-function displaySimpleUploadResult(profile) {
-    const resultDiv = document.getElementById('uploadResult');
-    const contentDiv = document.getElementById('uploadResultContent');
-    
-    contentDiv.innerHTML = `
-        <div class="result-card">
-            <h4>Personal Information</h4>
-            <div class="info-grid">
-                <div class="info-item">
-                    <div class="info-label">Name</div>
-                    <div class="info-value">${profile.personal_info.full_name}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Email</div>
-                    <div class="info-value">${profile.personal_info.email}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Location</div>
-                    <div class="info-value">${profile.personal_info.location}</div>
-                </div>
-            </div>
-            <p><strong>Summary:</strong> ${profile.personal_info.professional_summary}</p>
-        </div>
-        
-        <div class="result-card">
-            <h4>Profile Overview</h4>
-            <div class="info-grid">
-                <div class="info-item">
-                    <div class="info-label">Work Experience</div>
-                    <div class="info-value">${profile.work_history?.length || 0} positions</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Education</div>
-                    <div class="info-value">${profile.education?.length || 0} entries</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Projects</div>
-                    <div class="info-value">${profile.projects?.length || 0} projects</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Technical Skills</div>
-                    <div class="info-value">${profile.skills?.technical?.length || 0} skills</div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="alert alert-success">
-            ✓ Profile extracted successfully! You can now use this profile in other tabs.
-        </div>
-    `;
-    
-    resultDiv.style.display = 'block';
-    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-function displayDetailedUploadResult(data) {
-    const resultDiv = document.getElementById('uploadResult');
-    const contentDiv = document.getElementById('uploadResultContent');
-    
-    const profile = data.profile;
-    const confidence = (data.ocr_confidence * 100).toFixed(1);
-    const confidenceClass = confidence >= 90 ? 'high' : confidence >= 70 ? 'medium' : 'low';
-    
-    contentDiv.innerHTML = `
-        <div class="result-card">
-            <h4>OCR Quality Metrics</h4>
-            <div class="info-grid">
-                <div class="info-item">
-                    <div class="info-label">Confidence Score</div>
-                    <div class="info-value match-score ${confidenceClass}">${confidence}%</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Pages Processed</div>
-                    <div class="info-value">${data.extraction_metadata.pages_processed}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Text Length</div>
-                    <div class="info-value">${data.extraction_metadata.raw_text_length} chars</div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="result-card">
-            <h4>Extracted Profile</h4>
-            <p><strong>${profile.personal_info.full_name}</strong></p>
-            <p>${profile.personal_info.email} • ${profile.personal_info.location}</p>
-            <p style="margin-top: 1rem;">${profile.personal_info.professional_summary}</p>
-            
-            <div style="margin-top: 1.5rem;">
-                <div class="metadata">
-                    <div class="metadata-item">
-                        <span class="metadata-label">Work History:</span>
-                        <span class="metadata-value">${profile.work_history?.length || 0}</span>
-                    </div>
-                    <div class="metadata-item">
-                        <span class="metadata-label">Education:</span>
-                        <span class="metadata-value">${profile.education?.length || 0}</span>
-                    </div>
-                    <div class="metadata-item">
-                        <span class="metadata-label">Projects:</span>
-                        <span class="metadata-value">${profile.projects?.length || 0}</span>
-                    </div>
-                    <div class="metadata-item">
-                        <span class="metadata-label">Skills:</span>
-                        <span class="metadata-value">${profile.skills?.technical?.length || 0}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="alert alert-success">
-            ✓ Resume processed successfully! Profile saved and ready to use.
-        </div>
-    `;
-    
-    resultDiv.style.display = 'block';
-    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-// Analyze Job Match
-async function analyzeJob() {
-    const profileSource = document.querySelector('input[name="profileSource"]:checked').value;
-    let profile;
-    
-    if (profileSource === 'upload') {
-        if (!uploadedProfile) {
-            showAlert('analyzeResult', 'Please upload a resume first in the Upload Resume tab', 'warning');
-            return;
-        }
-        profile = uploadedProfile;
-    } else {
-        const manualProfile = document.getElementById('manualProfile').value;
-        if (!manualProfile) {
-            showAlert('analyzeResult', 'Please enter a profile JSON', 'error');
-            return;
-        }
-        try {
-            profile = JSON.parse(manualProfile);
-        } catch (e) {
-            showAlert('analyzeResult', 'Invalid JSON format', 'error');
-            return;
-        }
-    }
-    
-    const jobTitle = document.getElementById('jobTitle').value;
-    const jobLocation = document.getElementById('jobLocation').value;
-    const jobUrl = document.getElementById('jobUrl').value;
-    
-    if (!jobUrl && (!jobTitle || !jobLocation)) {
-        showAlert('analyzeResult', 'Please provide either a job URL or both job title and location', 'warning');
+// Batch Upload Resumes
+async function batchUploadResumes() {
+    if (!selectedBatchFiles || selectedBatchFiles.length === 0) {
+        showAlert('uploadResult', 'Please select files first', 'error');
         return;
     }
     
     showLoading();
     
     try {
-        const response = await fetch(`${API_BASE_URL}/analyze`, {
+        const formData = new FormData();
+        selectedBatchFiles.forEach(file => {
+            formData.append('files', file);
+        });
+        
+        const response = await fetch(`${API_BASE_URL}/api/candidates/batch-upload`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                user_profile: profile,
-                job_params: {
-                    job_title: jobTitle || null,
-                    location: jobLocation || null,
-                    url: jobUrl || null
-                }
-            })
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            candidates.push(...data.candidates);
+            displayUploadResult(data, data.successful, data.failed);
+        } else {
+            showAlert('uploadResult', `Error: ${data.detail || 'Upload failed'}`, 'error');
+        }
+    } catch (error) {
+        showAlert('uploadResult', `Error: ${error.message}`, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function displayUploadResult(data, successful, failed) {
+    const resultDiv = document.getElementById('uploadResult');
+    const contentDiv = document.getElementById('uploadResultContent');
+    
+    let html = '';
+    
+    if (successful > 1 || (data.candidates && data.candidates.length > 1)) {
+        // Batch upload result
+        html = `
+            <div class="alert alert-success">
+                ✓ Successfully uploaded ${successful} candidate(s)${failed > 0 ? `, ${failed} failed` : ''}
+            </div>
+            <div class="result-card">
+                <h4>Uploaded Candidates</h4>
+                <ul>
+                    ${(data.candidates || [data]).map(c => `
+                        <li><strong>ID:</strong> ${c.id}<br>
+                        <strong>Name:</strong> ${c.profile_data?.personal_info?.full_name || 'N/A'}<br>
+                        <strong>File:</strong> ${c.resume_filename || 'N/A'}</li>
+                    `).join('')}
+                </ul>
+            </div>
+        `;
+    } else {
+        // Single upload result
+        const candidate = data.candidates ? data.candidates[0] : data;
+        const profile = candidate.profile_data;
+        html = `
+            <div class="alert alert-success">
+                ✓ Candidate uploaded successfully! ID: ${candidate.id}
+            </div>
+            <div class="result-card">
+                <h4>Candidate Information</h4>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Candidate ID</div>
+                        <div class="info-value">${candidate.id}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Name</div>
+                        <div class="info-value">${profile?.personal_info?.full_name || 'N/A'}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Email</div>
+                        <div class="info-value">${profile?.personal_info?.email || 'N/A'}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Location</div>
+                        <div class="info-value">${profile?.personal_info?.location || 'N/A'}</div>
+                    </div>
+                    ${candidate.ocr_confidence ? `
+                    <div class="info-item">
+                        <div class="info-label">OCR Confidence</div>
+                        <div class="info-value">${(candidate.ocr_confidence * 100).toFixed(1)}%</div>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }
+    
+    contentDiv.innerHTML = html;
+    resultDiv.style.display = 'block';
+}
+
+// Load Candidates List
+async function loadCandidates() {
+    showLoading();
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/candidates`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            candidates = data;
+            displayCandidates(data);
+        } else {
+            showAlert('candidatesList', `Error: ${data.detail || 'Failed to load candidates'}`, 'error');
+        }
+    } catch (error) {
+        showAlert('candidatesList', `Error: ${error.message}`, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function displayCandidates(candidatesList) {
+    const container = document.getElementById('candidatesList');
+    const emptyState = document.getElementById('candidatesEmpty');
+    
+    if (!candidatesList || candidatesList.length === 0) {
+        container.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+    }
+    
+    container.style.display = 'grid';
+    emptyState.style.display = 'none';
+    
+    container.innerHTML = candidatesList.map(candidate => {
+        const profile = candidate.profile_data || {};
+        const personalInfo = profile.personal_info || {};
+        const skills = profile.skills?.technical || [];
+        
+        return `
+            <div class="candidate-card">
+                <h4>${personalInfo.full_name || 'Unknown'}</h4>
+                <div class="candidate-info">
+                    <p><strong>Email:</strong> ${personalInfo.email || 'N/A'}</p>
+                    <p><strong>Location:</strong> ${personalInfo.location || 'N/A'}</p>
+                    <p><strong>ID:</strong> <code>${candidate.id}</code></p>
+                    <p><strong>Skills:</strong> ${skills.length} technical skills</p>
+                    ${candidate.resume_filename ? `<p><strong>Resume:</strong> ${candidate.resume_filename}</p>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Populate Candidate Dropdown
+async function populateCandidateDropdown() {
+    const select = document.getElementById('candidateSelect');
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/candidates`);
+        const data = await response.json();
+        
+        select.innerHTML = '<option value="">-- Select a candidate --</option>' +
+            data.map(c => {
+                const name = c.profile_data?.personal_info?.full_name || 'Unknown';
+                return `<option value="${c.id}">${name} (${c.id})</option>`;
+            }).join('');
+    } catch (error) {
+        console.error('Failed to load candidates:', error);
+    }
+}
+
+// Load Candidate Details (for analyze tab)
+async function loadCandidateDetails() {
+    const candidateId = document.getElementById('candidateSelect').value;
+    // Could show preview of candidate info here if needed
+}
+
+// Analyze Candidate
+async function analyzeCandidate() {
+    const candidateId = document.getElementById('candidateSelect').value;
+    const jobTitle = document.getElementById('jobTitle').value;
+    const jobLocation = document.getElementById('jobLocation').value;
+    const jobUrl = document.getElementById('jobUrl').value;
+    
+    if (!candidateId) {
+        showAlert('analyzeResult', 'Please select a candidate', 'warning');
+        return;
+    }
+    
+    if (!jobTitle) {
+        showAlert('analyzeResult', 'Please provide a job title', 'warning');
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        const url = new URL(`${API_BASE_URL}/api/candidates/${candidateId}/analyze`);
+        url.searchParams.append('job_title', jobTitle);
+        if (jobLocation) url.searchParams.append('job_location', jobLocation);
+        if (jobUrl) url.searchParams.append('job_url', jobUrl);
+        
+        const response = await fetch(url, {
+            method: 'POST'
         });
         
         const data = await response.json();
@@ -354,7 +396,7 @@ function displayAnalysisResult(analysis) {
             <div class="list-section">
                 <h5>✓ Key Matches</h5>
                 <ul>
-                    ${analysis.key_matches.map(match => `<li>${match}</li>`).join('')}
+                    ${(analysis.key_matches || []).map(match => `<li>${match}</li>`).join('')}
                 </ul>
             </div>
         </div>
@@ -374,278 +416,393 @@ function displayAnalysisResult(analysis) {
             <div class="list-section">
                 <h5>💡 Suggestions</h5>
                 <ul>
-                    ${analysis.suggestions.map(suggestion => `<li>${suggestion}</li>`).join('')}
+                    ${(analysis.suggestions || []).map(suggestion => `<li>${suggestion}</li>`).join('')}
                 </ul>
             </div>
         </div>
     `;
     
     resultDiv.style.display = 'block';
-    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-// Generate Answer
-async function generateAnswer() {
-    const profileSource = document.querySelector('input[name="profileSourceGen"]:checked').value;
-    let profile;
+// ===== Analytics Sub-tabs =====
+function showAnalyticsSubTab(subtab) {
+    const subtabs = document.querySelectorAll('.analytics-subtab');
+    subtabs.forEach(t => t.classList.remove('active'));
+    document.getElementById(`${subtab}-subtab`).classList.add('active');
     
-    if (profileSource === 'upload') {
-        if (!uploadedProfile) {
-            showAlert('generateResult', 'Please upload a resume first in the Upload Resume tab', 'warning');
-            return;
-        }
-        profile = uploadedProfile;
-    } else {
-        showAlert('generateResult', 'Manual profile entry not implemented yet. Please use uploaded resume.', 'warning');
-        return;
+    const buttons = document.querySelectorAll('#analytics-tab .subtab-button');
+    buttons.forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+}
+
+function showMarketSubTab(subtab) {
+    const subtabs = document.querySelectorAll('.market-subtab');
+    subtabs.forEach(t => t.classList.remove('active'));
+    document.getElementById(`${subtab}-subtab`).classList.add('active');
+    
+    const buttons = document.querySelectorAll('#market-tab .subtab-button');
+    buttons.forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+}
+
+// Populate Candidate Checkboxes for Comparison
+async function populateCandidateCheckboxes() {
+    const container = document.getElementById('candidateCheckboxes');
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/candidates`);
+        const data = await response.json();
+        
+        container.innerHTML = data.map(c => {
+            const name = c.profile_data?.personal_info?.full_name || 'Unknown';
+            return `
+                <label>
+                    <input type="checkbox" name="compareCandidates" value="${c.id}">
+                    ${name} (${c.id.substring(0, 8)}...)
+                </label>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Failed to load candidates:', error);
     }
+}
+
+// Compare Candidates
+async function compareCandidates() {
+    const checkboxes = document.querySelectorAll('input[name="compareCandidates"]:checked');
+    const candidateIds = Array.from(checkboxes).map(cb => cb.value);
     
-    const jobTitle = document.getElementById('jobTitleGen').value;
-    const jobLocation = document.getElementById('jobLocationGen').value;
-    const questionText = document.getElementById('questionText').value;
-    const questionType = document.getElementById('questionType').value;
-    const maxLength = parseInt(document.getElementById('maxLength').value);
-    
-    if (!jobTitle || !jobLocation) {
-        showAlert('generateResult', 'Please provide job title and location', 'warning');
-        return;
-    }
-    
-    if (!questionText) {
-        showAlert('generateResult', 'Please enter an application question', 'warning');
+    if (candidateIds.length < 2) {
+        showAlert('compareResult', 'Please select at least 2 candidates to compare', 'warning');
         return;
     }
     
     showLoading();
     
     try {
-        const response = await fetch(`${API_BASE_URL}/generate_answer`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                user_profile: profile,
-                job_params: {
-                    job_title: jobTitle,
-                    location: jobLocation
-                },
-                application_question: {
-                    question_id: 'q1',
-                    question_text: questionText,
-                    question_type: questionType,
-                    max_length: maxLength
-                }
-            })
-        });
-        
+        const response = await fetch(`${API_BASE_URL}/api/analytics/comparison?candidate_ids=${candidateIds.join(',')}`);
         const data = await response.json();
         
         if (response.ok) {
-            displayGeneratedAnswer(data);
+            displayComparisonResult(data);
         } else {
-            showAlert('generateResult', `Error: ${data.detail || 'Generation failed'}`, 'error');
+            showAlert('compareResult', `Error: ${data.detail || 'Comparison failed'}`, 'error');
         }
     } catch (error) {
-        showAlert('generateResult', `Error: ${error.message}`, 'error');
+        showAlert('compareResult', `Error: ${error.message}`, 'error');
     } finally {
         hideLoading();
     }
 }
 
-function displayGeneratedAnswer(data) {
-    const resultDiv = document.getElementById('generateResult');
-    const contentDiv = document.getElementById('generateResultContent');
+function displayComparisonResult(data) {
+    const resultDiv = document.getElementById('compareResult');
+    const contentDiv = document.getElementById('compareResultContent');
     
-    const answer = data.final_answer;
+    const skillsComparison = data.skills_comparison || {};
+    const skills = Object.keys(skillsComparison);
+    
+    let skillsMatrixHtml = '';
+    if (skills.length > 0) {
+        skillsMatrixHtml = `
+            <div class="result-card">
+                <h4>Skills Comparison Matrix</h4>
+                <div class="comparison-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Skill</th>
+                                ${data.candidates.map(c => `<th>${c.name}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${skills.map(skill => `
+                                <tr>
+                                    <td><strong>${skill}</strong></td>
+                                    ${data.candidates.map(c => {
+                                        const hasSkill = skillsComparison[skill]?.[c.id] || false;
+                                        return `<td>${hasSkill ? '✓' : '✗'}</td>`;
+                                    }).join('')}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
     
     contentDiv.innerHTML = `
         <div class="result-card">
-            <h4>Generated Answer</h4>
-            <div class="answer-box">
-                ${answer.text}
-            </div>
-            <div class="metadata">
-                <div class="metadata-item">
-                    <span class="metadata-label">Word Count:</span>
-                    <span class="metadata-value">${answer.word_count}</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="result-card">
-            <div class="list-section">
-                <h5>Key Points Addressed</h5>
-                <ul>
-                    ${answer.key_points_addressed.map(point => `<li>${point}</li>`).join('')}
-                </ul>
+            <h4>Candidates Being Compared</h4>
+            <div class="info-grid">
+                ${data.candidates.map(c => `
+                    <div class="info-item">
+                        <div class="info-label">${c.name}</div>
+                        <div class="info-value">${c.skills_count} skills</div>
+                    </div>
+                `).join('')}
             </div>
         </div>
-        
-        ${answer.tailored_elements.skills_mentioned.length > 0 ? `
-        <div class="result-card">
-            <h4>Tailored Elements</h4>
-            <p><strong>Skills Mentioned:</strong> ${answer.tailored_elements.skills_mentioned.join(', ')}</p>
-            ${answer.tailored_elements.experience_highlighted.length > 0 ? 
-                `<p><strong>Experience Highlighted:</strong> ${answer.tailored_elements.experience_highlighted.join(', ')}</p>` : ''}
-        </div>
-        ` : ''}
-        
-        <div class="alert alert-success">
-            ✓ Answer generated successfully! You can copy and customize it for your application.
-        </div>
+        ${skillsMatrixHtml}
     `;
     
     resultDiv.style.display = 'block';
-    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-// Complete Workflow
-async function runCompleteWorkflow() {
-    if (!workflowFile) {
-        showAlert('workflowResult', 'Please select a resume file', 'warning');
-        return;
-    }
-    
-    const jobTitle = document.getElementById('workflowJobTitle').value;
-    const jobLocation = document.getElementById('workflowJobLocation').value;
-    const question = document.getElementById('workflowQuestion').value;
-    
-    if (!jobTitle || !jobLocation || !question) {
-        showAlert('workflowResult', 'Please fill in all fields', 'warning');
-        return;
-    }
-    
-    const progressDiv = document.getElementById('workflowProgress');
-    const resultDiv = document.getElementById('workflowResult');
-    progressDiv.style.display = 'block';
-    resultDiv.style.display = 'none';
+// Skills Gap Analysis
+async function loadSkillsGap() {
+    showLoading();
     
     try {
-        // Step 1: Upload resume
-        updateProgressStep('step1', 'active', '⏳');
-        const formData = new FormData();
-        formData.append('file', workflowFile);
+        const response = await fetch(`${API_BASE_URL}/api/analytics/skills-gap`);
+        const data = await response.json();
         
-        const uploadResponse = await fetch(`${API_BASE_URL}/upload_resume`, {
-            method: 'POST',
-            body: formData
-        });
-        
-        if (!uploadResponse.ok) {
-            throw new Error('Resume upload failed');
+        if (response.ok) {
+            displaySkillsGap(data);
+        } else {
+            showAlert('skillsGapResult', `Error: ${data.detail || 'Failed to load skills gap'}`, 'error');
         }
-        
-        const profile = await uploadResponse.json();
-        updateProgressStep('step1', 'completed', '✓');
-        
-        // Step 2: Analyze job match
-        updateProgressStep('step2', 'active', '⏳');
-        const analyzeResponse = await fetch(`${API_BASE_URL}/analyze`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_profile: profile,
-                job_params: { job_title: jobTitle, location: jobLocation }
-            })
-        });
-        
-        if (!analyzeResponse.ok) {
-            throw new Error('Job analysis failed');
-        }
-        
-        const analysis = await analyzeResponse.json();
-        updateProgressStep('step2', 'completed', '✓');
-        
-        // Step 3: Generate answer
-        updateProgressStep('step3', 'active', '⏳');
-        const generateResponse = await fetch(`${API_BASE_URL}/generate_answer`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_profile: profile,
-                job_params: { job_title: jobTitle, location: jobLocation },
-                application_question: {
-                    question_id: 'wq1',
-                    question_text: question,
-                    question_type: 'essay',
-                    max_length: 500
-                }
-            })
-        });
-        
-        if (!generateResponse.ok) {
-            throw new Error('Answer generation failed');
-        }
-        
-        const answerData = await generateResponse.json();
-        updateProgressStep('step3', 'completed', '✓');
-        
-        // Display complete results
-        displayWorkflowResults(profile, analysis, answerData);
-        
     } catch (error) {
-        const activeStep = document.querySelector('.progress-step.active');
-        if (activeStep) {
-            updateProgressStep(activeStep.id, 'error', '✗');
-        }
-        showAlert('workflowResult', `Error: ${error.message}`, 'error');
+        showAlert('skillsGapResult', `Error: ${error.message}`, 'error');
+    } finally {
+        hideLoading();
     }
 }
 
-function updateProgressStep(stepId, status, icon) {
-    const step = document.getElementById(stepId);
-    step.className = `progress-step ${status}`;
-    step.querySelector('.step-icon').textContent = icon;
+function displaySkillsGap(data) {
+    const resultDiv = document.getElementById('skillsGapResult');
+    const contentDiv = document.getElementById('skillsGapResultContent');
+    
+    if (data.message) {
+        contentDiv.innerHTML = `<div class="alert alert-warning">${data.message}</div>`;
+    } else {
+        const skillCoverage = data.skill_coverage || {};
+        const skills = Object.entries(skillCoverage).sort((a, b) => b[1].count - a[1].count);
+        
+        contentDiv.innerHTML = `
+            <div class="result-card">
+                <h4>Skills Gap Analysis</h4>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Total Candidates</div>
+                        <div class="info-value">${data.total_candidates}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Unique Skills</div>
+                        <div class="info-value">${data.unique_skills}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="result-card">
+                <h4>Skill Coverage</h4>
+                ${skills.map(([skill, info]) => `
+                    <div style="margin-bottom: 1rem;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                            <span><strong>${skill}</strong></span>
+                            <span>${info.count}/${data.total_candidates} (${info.percentage.toFixed(1)}%)</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${info.percentage}%"></div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+    
+    resultDiv.style.display = 'block';
 }
 
-function displayWorkflowResults(profile, analysis, answerData) {
-    const resultDiv = document.getElementById('workflowResult');
-    const contentDiv = document.getElementById('workflowResultContent');
+// Statistics
+async function loadStatistics() {
+    showLoading();
     
-    const answer = answerData.final_answer;
-    const scoreClass = analysis.match_score >= 75 ? 'high' : analysis.match_score >= 50 ? 'medium' : 'low';
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/analytics/statistics`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            displayStatistics(data);
+        } else {
+            showAlert('statisticsResult', `Error: ${data.detail || 'Failed to load statistics'}`, 'error');
+        }
+    } catch (error) {
+        showAlert('statisticsResult', `Error: ${error.message}`, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function displayStatistics(data) {
+    const resultDiv = document.getElementById('statisticsResult');
+    const contentDiv = document.getElementById('statisticsResultContent');
     
     contentDiv.innerHTML = `
         <div class="result-card">
-            <h4>📄 Extracted Profile</h4>
-            <p><strong>${profile.personal_info.full_name}</strong></p>
-            <p>${profile.personal_info.email} • ${profile.personal_info.location}</p>
-        </div>
-        
-        <div class="result-card">
-            <h4>📊 Job Match Analysis</h4>
-            <div style="text-align: center; margin: 1rem 0;">
-                <div class="match-score ${scoreClass}">${analysis.match_score}/100</div>
-            </div>
-            <div class="list-section">
-                <h5>Top Matches:</h5>
-                <ul>
-                    ${analysis.key_matches.slice(0, 3).map(match => `<li>${match}</li>`).join('')}
-                </ul>
-            </div>
-        </div>
-        
-        <div class="result-card">
-            <h4>✍️ Generated Answer</h4>
-            <div class="answer-box">
-                ${answer.text}
-            </div>
-            <div class="metadata">
-                <div class="metadata-item">
-                    <span class="metadata-label">Word Count:</span>
-                    <span class="metadata-value">${answer.word_count}</span>
+            <h4>Overall Statistics</h4>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Total Candidates</div>
+                    <div class="info-value">${data.total_candidates || 0}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Total Analyses</div>
+                    <div class="info-value">${data.total_analyses || 0}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Average Match Score</div>
+                    <div class="info-value">${data.average_match_score || 0}</div>
                 </div>
             </div>
         </div>
-        
-        <div class="alert alert-success">
-            🎉 Workflow completed successfully! Your application materials are ready.
+        ${data.top_skills && data.top_skills.length > 0 ? `
+        <div class="result-card">
+            <h4>Top Skills</h4>
+            <ul>
+                ${data.top_skills.map(s => `<li><strong>${s.skill}</strong> - ${s.count} candidate(s)</li>`).join('')}
+            </ul>
         </div>
+        ` : ''}
     `;
     
     resultDiv.style.display = 'block';
-    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Market Intelligence - Skill Benchmarks
+async function loadSkillBenchmarks() {
+    const jobTitle = document.getElementById('benchmarkJobTitle').value;
+    
+    if (!jobTitle) {
+        showAlert('benchmarksResult', 'Please enter a job title', 'warning');
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/market-intelligence/skill-benchmarks?job_title=${encodeURIComponent(jobTitle)}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            displayBenchmarks(data);
+        } else {
+            showAlert('benchmarksResult', `Error: ${data.detail || 'Failed to load benchmarks'}`, 'error');
+        }
+    } catch (error) {
+        showAlert('benchmarksResult', `Error: ${error.message}`, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function displayBenchmarks(data) {
+    const resultDiv = document.getElementById('benchmarksResult');
+    const contentDiv = document.getElementById('benchmarksResultContent');
+    
+    if (data.message || data.sample_size === 0) {
+        contentDiv.innerHTML = `
+            <div class="alert alert-warning">
+                ${data.message || 'Insufficient data for benchmarks'}
+            </div>
+            <p>Try analyzing some candidates against this job title first.</p>
+        `;
+    } else {
+        const benchmarks = data.benchmarks || {};
+        contentDiv.innerHTML = `
+            <div class="result-card">
+                <h4>Skill Benchmarks for "${data.job_title}"</h4>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Sample Size</div>
+                        <div class="info-value">${data.sample_size}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Mean Score</div>
+                        <div class="info-value">${benchmarks.mean?.toFixed(1) || 'N/A'}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">P50 (Median)</div>
+                        <div class="info-value">${benchmarks.p50 || 'N/A'}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">P75</div>
+                        <div class="info-value">${benchmarks.p75 || 'N/A'}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">P90</div>
+                        <div class="info-value">${benchmarks.p90 || 'N/A'}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    resultDiv.style.display = 'block';
+}
+
+// Market Insights
+async function loadMarketInsights() {
+    showLoading();
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/market-intelligence/insights`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            displayMarketInsights(data);
+        } else {
+            showAlert('insightsResult', `Error: ${data.detail || 'Failed to load insights'}`, 'error');
+        }
+    } catch (error) {
+        showAlert('insightsResult', `Error: ${error.message}`, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function displayMarketInsights(data) {
+    const resultDiv = document.getElementById('insightsResult');
+    const contentDiv = document.getElementById('insightsResultContent');
+    
+    if (data.message) {
+        contentDiv.innerHTML = `<div class="alert alert-warning">${data.message}</div>`;
+    } else {
+        contentDiv.innerHTML = `
+            <div class="result-card">
+                <h4>Market Insights</h4>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Total Candidates</div>
+                        <div class="info-value">${data.total_candidates}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Total Analyses</div>
+                        <div class="info-value">${data.total_analyses}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Average Match Score</div>
+                        <div class="info-value">${data.average_match_score}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Skills Diversity</div>
+                        <div class="info-value">${data.skills_diversity} unique skills</div>
+                    </div>
+                </div>
+            </div>
+            ${data.top_skills && data.top_skills.length > 0 ? `
+            <div class="result-card">
+                <h4>Top Skills in Market</h4>
+                <ul>
+                    ${data.top_skills.map(([skill, count]) => `<li><strong>${skill}</strong> - ${count} occurrence(s)</li>`).join('')}
+                </ul>
+            </div>
+            ` : ''}
+        `;
+    }
+    
+    resultDiv.style.display = 'block';
 }
 
 // Utility Functions
@@ -659,4 +816,3 @@ function showAlert(containerId, message, type = 'info') {
     container.style.display = 'block';
     container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
-
