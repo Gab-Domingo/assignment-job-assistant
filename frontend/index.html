@@ -19,6 +19,7 @@
             <button class="tab-button active" onclick="showTab('upload')">📄 Upload Candidates</button>
             <button class="tab-button" onclick="showTab('candidates')">👥 Candidate List</button>
             <button class="tab-button" onclick="showTab('analyze')">🔍 Analyze Candidate</button>
+            <button class="tab-button" onclick="showTab('shortlist')">⭐ Shortlisting</button>
             <button class="tab-button" onclick="showTab('analytics')">📊 Analytics Dashboard</button>
             <button class="tab-button" onclick="showTab('market')">📈 Market Intelligence</button>
         </div>
@@ -156,6 +157,50 @@
                 <div id="analyzeResult" class="result-section" style="display: none;">
                     <h3>Analysis Results</h3>
                     <div id="analyzeResultContent"></div>
+                </div>
+            </div>
+
+            <!-- Shortlisting Tab -->
+            <div id="shortlist-tab" class="tab-panel">
+                <h2>Candidate Shortlisting</h2>
+                <p class="description">Review and shortlist candidates with detailed match analysis. Swipe right to accept, left to reject.</p>
+                
+                <div class="form-section">
+                    <div id="shortlistJobTitleInfo" class="info-box" style="margin-bottom: 1rem;">
+                        <p><strong>Current Job Title:</strong> <span id="currentJobTitleDisplay" style="color: var(--primary-color);">Not set - Please select a job title in the Analyze Candidate tab first</span></p>
+                    </div>
+                    <button class="btn btn-primary" onclick="loadShortlistCandidates()" id="loadShortlistBtn">
+                        📋 Load Candidates for Shortlisting
+                    </button>
+                    <p id="shortlistJobTitleHint" style="color: #666; font-size: 0.9rem; margin-top: 0.5rem;">
+                        💡 Select a job title in the "Analyze Candidate" tab to get started
+                    </p>
+                </div>
+
+                <!-- Shortlisting Card Container -->
+                <div id="shortlistContainer" class="shortlist-container" style="display: none;">
+                    <div id="shortlistCard" class="shortlist-card">
+                        <!-- Card content will be dynamically generated -->
+                    </div>
+                    <div id="shortlistEmpty" class="empty-state" style="display: none;">
+                        <p>No more candidates to review. All candidates have been processed!</p>
+                    </div>
+                </div>
+
+                <!-- Shortlisting Controls -->
+                <div id="shortlistControls" class="shortlist-controls" style="display: none;">
+                    <button class="btn btn-reject" onclick="rejectCandidate()">
+                        ❌ Reject
+                    </button>
+                    <button class="btn btn-shortlist" onclick="shortlistCandidate()">
+                        ⭐ Shortlist
+                    </button>
+                </div>
+
+                <!-- Shortlisted Candidates Summary -->
+                <div id="shortlistedSummary" class="result-section" style="display: none;">
+                    <h3>Shortlisted Candidates</h3>
+                    <div id="shortlistedContent"></div>
                 </div>
             </div>
 

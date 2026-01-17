@@ -128,12 +128,16 @@ class ResumeAnalyzer:
             # 5. Parse response
             parsed_response = self._parse_llm_response(llm_response)
 
-            # 6. Create result object
+            # 6. Create result object with enhanced metadata
             metadata = {
                 'job_title': job_scraped_data.job_title,
                 'job_description': job_scraped_data.job_description,
                 'analysis_timestamp': datetime.now().isoformat(),
-                'rag_used': use_rag
+                'rag_used': use_rag,
+                # Add detailed scoring criteria for quick judgment
+                'candidate_overview': parsed_response.get('candidate_overview', ''),
+                'section_scores': parsed_response.get('section_scores', {}),
+                'quick_judgment': parsed_response.get('quick_judgment', {})
             }
             
             # Include ideal profile data if available
@@ -173,7 +177,7 @@ class ResumeAnalyzer:
                 print(f"Raw response: {llm_response}")  # For debugging
                 raise ValueError("No valid JSON object found in response")
 
-            # Validate required fields
+            # Validate required fields (make new fields optional for backward compatibility)
             required_fields = ['match_score', 'suggestions', 'key_matches', 'gaps']
             missing_fields = [field for field in required_fields if field not in parsed]
             if missing_fields:
@@ -192,6 +196,31 @@ class ResumeAnalyzer:
             # Validate score range
             if not (0 <= parsed['match_score'] <= 100):
                 raise ValueError("match_score must be between 0 and 100")
+            
+            # Set default values for new fields if not present (backward compatibility)
+            if 'candidate_overview' not in parsed:
+                parsed['candidate_overview'] = f"Candidate with {len(parsed.get('key_matches', []))} key matches and {len(parsed.get('gaps', []))} identified gaps."
+            
+            if 'section_scores' not in parsed:
+                # Estimate section scores from overall score
+                overall = parsed['match_score']
+                parsed['section_scores'] = {
+                    'experience': overall,
+                    'skills': overall,
+                    'education': overall,
+                    'overall_fit': overall
+                }
+            
+            if 'quick_judgment' not in parsed:
+                score = parsed['match_score']
+                recommendation = 'shortlist' if score >= 70 else ('maybe' if score >= 50 else 'reject')
+                parsed['quick_judgment'] = {
+                    'strength_1': parsed['key_matches'][0] if parsed.get('key_matches') else 'Relevant experience',
+                    'strength_2': parsed['key_matches'][1] if len(parsed.get('key_matches', [])) > 1 else 'Strong skills',
+                    'concern_1': parsed['gaps'][0] if parsed.get('gaps') else 'Some gaps identified',
+                    'concern_2': parsed['gaps'][1] if len(parsed.get('gaps', [])) > 1 else 'Needs improvement',
+                    'recommendation': recommendation
+                }
 
             return parsed
 

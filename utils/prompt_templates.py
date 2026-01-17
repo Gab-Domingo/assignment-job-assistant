@@ -37,7 +37,7 @@ def get_resume_analysis_prompt(profile: UserProfile, job_data: ScrapedJobData) -
     profile_json = json.dumps(profile_data, indent=2)
     job_data_json = json.dumps(job_data_dict, indent=2)
     
-    return f"""You are an expert resume analyzer. Analyze this candidate's profile against the job requirements.
+    return f"""You are an expert resume analyzer. Analyze this candidate's profile against the job requirements and provide a comprehensive breakdown for quick judgment.
 
     CANDIDATE PROFILE:
     {profile_json}
@@ -47,11 +47,32 @@ def get_resume_analysis_prompt(profile: UserProfile, job_data: ScrapedJobData) -
 
     IMPORTANT: Respond ONLY with a JSON object in the following format, with no additional text, thoughts, or explanations:
     {{
-        "match_score": number between 0-100,
-        "suggestions": [list of specific, actionable suggestions],
-        "key_matches": [list of main areas where candidate matches requirements],
-        "gaps": [list of specific gaps between profile and requirements]
-    }}"""
+        "match_score": number between 0-100 (overall match score),
+        "candidate_overview": "A concise 2-3 sentence summary of the candidate's fit for this role, highlighting key strengths and overall assessment",
+        "section_scores": {{
+            "experience": number 0-100 (how well experience matches requirements),
+            "skills": number 0-100 (how well skills match must-haves and preferred),
+            "education": number 0-100 (how well education matches requirements),
+            "overall_fit": number 0-100 (overall cultural and role fit)
+        }},
+        "key_matches": [list of 3-5 main areas where candidate strongly matches requirements - be specific],
+        "gaps": [list of 3-5 specific gaps or missing requirements - prioritize critical gaps first],
+        "suggestions": [list of 3-5 specific, actionable suggestions for improvement],
+        "quick_judgment": {{
+            "strength_1": "Top strength for this role (one short phrase)",
+            "strength_2": "Second strength (one short phrase)",
+            "concern_1": "Top concern or gap (one short phrase)",
+            "concern_2": "Second concern (one short phrase)",
+            "recommendation": "shortlist" | "maybe" | "reject" (based on match score and critical requirements)
+        }}
+    }}
+    
+    Guidelines for scoring:
+    - match_score: Weighted average considering all factors, prioritize must-have skills and experience
+    - section_scores: Rate each section independently 0-100
+    - candidate_overview: Focus on fit, not just listing qualifications
+    - quick_judgment: Help recruiters make fast decisions
+    - recommendation: "shortlist" for 70+, "maybe" for 50-69, "reject" for <50, but adjust based on critical gaps"""
 
 def get_section_analysis_prompt(
     profile: UserProfile,

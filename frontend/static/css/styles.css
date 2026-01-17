@@ -397,6 +397,368 @@ body {
     border-color: var(--primary-color) !important;
 }
 
+/* ===== Shortlisting Tab Styles ===== */
+.shortlist-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 600px;
+    padding: 2rem;
+    position: relative;
+}
+
+.shortlist-card {
+    max-width: 700px;
+    width: 100%;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    padding: 2rem;
+    transform: scale(1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 2px solid var(--border-color);
+}
+
+.shortlist-card:hover {
+    transform: scale(1.02);
+    box-shadow: 0 15px 50px rgba(0,0,0,0.2);
+}
+
+.shortlist-card-content {
+    position: relative;
+}
+
+.shortlist-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.shortlist-card-header h3 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+}
+
+.shortlist-details {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.detail-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.detail-section {
+    padding: 1rem;
+    background: var(--bg-color);
+    border-radius: 8px;
+}
+
+.detail-section h4 {
+    color: var(--primary-color);
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.detail-item {
+    margin: 0.5rem 0;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-right: 0.5rem;
+}
+
+.detail-value {
+    color: var(--text-primary);
+}
+
+.detail-value.highlight {
+    color: var(--primary-color);
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.skills-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.skill-tag {
+    background: var(--primary-color);
+    color: white;
+    padding: 0.4rem 0.8rem;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.matches-list, .gaps-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.matches-list li {
+    padding: 0.5rem 0;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--text-primary);
+}
+
+.matches-list li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: var(--success-color);
+    font-weight: bold;
+}
+
+.gaps-list li {
+    padding: 0.5rem 0;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--text-primary);
+}
+
+.gaps-list li::before {
+    content: "⚠";
+    position: absolute;
+    left: 0;
+    color: var(--warning-color);
+}
+
+.skill-match-bar {
+    position: relative;
+    width: 100%;
+    height: 30px;
+    background: var(--bg-color);
+    border-radius: 15px;
+    overflow: hidden;
+    margin: 0.5rem 0;
+}
+
+.skill-match-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--success-color), var(--primary-color));
+    transition: width 0.3s ease;
+    border-radius: 15px;
+}
+
+.skill-match-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    z-index: 1;
+}
+
+.shortlist-controls {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 2rem;
+    padding: 1rem;
+}
+
+.btn-reject, .btn-shortlist {
+    padding: 1.25rem 3rem;
+    border: none;
+    border-radius: 16px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-lg);
+}
+
+.btn-reject {
+    background: var(--danger-color);
+    color: white;
+}
+
+.btn-reject:hover {
+    background: #c0392b;
+    transform: scale(1.1) rotate(-5deg);
+    box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
+}
+
+.btn-shortlist {
+    background: var(--success-color);
+    color: white;
+}
+
+.btn-shortlist:hover {
+    background: #059669;
+    transform: scale(1.1) rotate(5deg);
+    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+}
+
+.shortlisted-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.shortlisted-item {
+    background: var(--bg-color);
+    padding: 1rem;
+    border-radius: 8px;
+    border-left: 4px solid var(--success-color);
+}
+
+.shortlisted-item h5 {
+    margin: 0 0 0.5rem 0;
+    color: var(--primary-color);
+}
+
+.shortlisted-item p {
+    margin: 0.25rem 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+/* Responsive adjustments for shortlisting */
+/* Quick Judgment Box */
+.quick-judgment-box {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: var(--bg-color);
+    border-radius: 12px;
+}
+
+.judgment-item {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+
+.judgment-item.positive {
+    border-left: 4px solid var(--success-color);
+    padding-left: 0.75rem;
+}
+
+.judgment-item.negative {
+    border-left: 4px solid var(--warning-color);
+    padding-left: 0.75rem;
+}
+
+.judgment-icon {
+    font-size: 1.5rem;
+}
+
+.judgment-item strong {
+    display: block;
+    margin-bottom: 0.25rem;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.judgment-item div > div {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+/* Section Scores Box */
+.section-scores-box {
+    background: var(--bg-color);
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin: 1.5rem 0;
+}
+
+.section-scores-box h4 {
+    margin: 0 0 1rem 0;
+}
+
+.scores-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.score-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.score-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.score-bar {
+    position: relative;
+    width: 100%;
+    height: 24px;
+    background: #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.score-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color), var(--success-color));
+    transition: width 0.3s ease;
+    border-radius: 12px;
+}
+
+.score-value {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    z-index: 1;
+}
+
+@media (max-width: 768px) {
+    .shortlist-card {
+        max-width: 100%;
+        padding: 1.5rem;
+    }
+    
+    .detail-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .shortlist-controls {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .btn-reject, .btn-shortlist {
+        width: 100%;
+        padding: 1rem 2rem;
+    }
+    
+    .quick-judgment-box {
+        grid-template-columns: 1fr;
+    }
+}
+
 .match-score {
     display: inline-block;
     padding: 0.5rem 1rem;

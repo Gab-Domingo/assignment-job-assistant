@@ -376,6 +376,149 @@ async def get_skill_benchmarks(job_title: str):
         }
     }
 
+# ===== Shortlisting =====
+
+@app.get("/api/shortlisting/candidates")
+async def get_candidates_for_shortlisting(job_title: str):
+    """Get all candidates with their analysis results for shortlisting"""
+    if not job_title:
+        raise HTTPException(status_code=400, detail="job_title is required")
+    
+    try:
+        # Get ideal profile for this job title
+        rag_service = RAGService()
+        ideal_profiles = await rag_service.search_ideal_profiles(
+            query=job_title,
+            job_title=job_title,
+            n_results=1
+        )
+        
+        ideal_profile = ideal_profiles[0]['profile'] if ideal_profiles else None
+        
+        # Get all candidates
+        candidates_list = []
+        
+        for candidate_id, candidate_data in candidates_store.items():
+            profile = UserProfile(**candidate_data['profile_data'])
+            
+            # Analyze this candidate
+            job_params = JobSearchParams(job_title=job_title, location="")
+            resume_analyzer = ResumeAnalyzer()
+            
+            try:
+                analysis_result = await resume_analyzer.analyze_resume_and_jd(
+                    user_profile=profile,
+                    job_params=job_params,
+                    use_rag=True
+                )
+            except Exception as e:
+                print(f"Failed to analyze candidate {candidate_id}: {str(e)}")
+                continue
+            
+            # Calculate years of experience
+            years_exp = 0
+            if profile.work_history:
+                for work in profile.work_history:
+                    start_year = int(work.start_date.split('-')[0]) if '-' in work.start_date else int(work.start_date)
+                    if work.end_date.lower() == 'present' or work.end_date == '':
+                        end_year = datetime.now().year
+                    else:
+                        end_year = int(work.end_date.split('-')[0]) if '-' in work.end_date else int(work.end_date)
+                    years_exp += max(0, end_year - start_year)
+            
+            # Get education info
+            education_list = [
+                {
+                    "degree": edu.degree,
+                    "institution": edu.institution,
+                    "field_of_study": edu.field_of_study or ""
+                }
+                for edu in profile.education
+            ]
+            
+            # Get skills
+            candidate_skills = profile.skills.technical if profile.skills else []
+            
+            # Compare with ideal profile must-haves
+            must_have_skills = ideal_profile.get('must_have_skills', []) if ideal_profile else []
+            preferred_skills = ideal_profile.get('preferred_skills', []) if ideal_profile else []
+            
+            # Convert skills to lowercase for comparison
+            candidate_skills_lower = [s.lower() for s in candidate_skills]
+            must_have_skills_lower = [s.lower() for s in must_have_skills]
+            
+            # Calculate skill matches
+            must_have_matches = sum(1 for skill in must_have_skills_lower if any(cs in skill or skill in cs for cs in candidate_skills_lower))
+            must_have_total = len(must_have_skills)
+            must_have_percentage = (must_have_matches / must_have_total * 100) if must_have_total > 0 else 0
+            
+            # Get skill gaps (must-haves not found)
+            skill_gaps = [
+                skill for skill in must_have_skills 
+                if not any(skill.lower() in cs or cs in skill.lower() for cs in candidate_skills_lower)
+            ]
+            
+            # Build shortlisting data
+            shortlisting_data = {
+                "candidate_id": candidate_id,
+                "name": profile.personal_info.full_name,
+                "email": profile.personal_info.email,
+                "location": profile.personal_info.location,
+                "professional_summary": profile.personal_info.professional_summary,
+                "years_experience": years_exp,
+                "education": education_list,
+                "skills": candidate_skills,
+                "soft_skills": profile.skills.soft if profile.skills else [],
+                "certifications": [
+                    {
+                        "name": cert.name,
+                        "issuer": cert.issuer or "",
+                        "date": cert.date or ""
+                    }
+                    for cert in (profile.skills.certifications if profile.skills else [])
+                ],
+                "match_score": analysis_result.match_score,
+                "key_matches": analysis_result.key_matches,
+                "gaps": analysis_result.gaps,
+                "suggestions": analysis_result.suggestions,
+                # Enhanced scoring criteria for quick judgment
+                "candidate_overview": analysis_result.metadata.get('candidate_overview', ''),
+                "section_scores": analysis_result.metadata.get('section_scores', {}),
+                "quick_judgment": analysis_result.metadata.get('quick_judgment', {}),
+                "ideal_profile": {
+                    "job_title": ideal_profile.get('job_title', job_title) if ideal_profile else job_title,
+                    "years_experience_required": ideal_profile.get('years_experience', 0) if ideal_profile else 0,
+                    "must_have_skills": must_have_skills,
+                    "preferred_skills": preferred_skills,
+                    "education_requirements": ideal_profile.get('education_requirements', []) if ideal_profile else [],
+                    "certifications_required": ideal_profile.get('certifications', []) if ideal_profile else []
+                },
+                "skill_analysis": {
+                    "must_have_matches": must_have_matches,
+                    "must_have_total": must_have_total,
+                    "must_have_percentage": round(must_have_percentage, 1),
+                    "skill_gaps": skill_gaps,
+                    "preferred_matches": sum(1 for skill in preferred_skills if any(skill.lower() in cs or cs in skill.lower() for cs in candidate_skills_lower)),
+                    "preferred_total": len(preferred_skills)
+                },
+                "created_at": candidate_data.get('created_at', '')
+            }
+            
+            candidates_list.append(shortlisting_data)
+        
+        # Sort by match score (highest first)
+        candidates_list.sort(key=lambda x: x['match_score'], reverse=True)
+        
+        return {
+            "job_title": job_title,
+            "ideal_profile": ideal_profile if ideal_profile else None,
+            "candidates": candidates_list,
+            "total": len(candidates_list)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get candidates for shortlisting: {str(e)}")
+
 @app.get("/api/market-intelligence/insights")
 async def get_market_insights():
     """Get aggregated market insights"""

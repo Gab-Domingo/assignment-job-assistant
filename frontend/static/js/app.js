@@ -3,6 +3,12 @@ let candidates = [];
 let selectedFile = null;
 let selectedBatchFiles = [];
 
+// Shortlisting state
+let shortlistQueue = [];
+let currentShortlistIndex = 0;
+let shortlistedCandidates = [];
+let currentJobTitle = null; // Shared job title from Analyze tab
+
 const API_BASE_URL = 'http://localhost:8000';
 
 // ===== Tab Management =====
@@ -25,6 +31,13 @@ function showTab(tabName) {
     } else if (tabName === 'analyze') {
         populateCandidateDropdown();
         loadAvailableProfiles(); // Always load ideal profiles when tab is shown
+    } else if (tabName === 'shortlist') {
+        // Reset shortlisting state when tab is opened
+        shortlistQueue = [];
+        currentShortlistIndex = 0;
+        shortlistedCandidates = [];
+        // Update job title display
+        updateShortlistingJobTitleDisplay();
     } else if (tabName === 'analytics') {
         populateCandidateCheckboxes();
     }
@@ -369,6 +382,8 @@ async function analyzeCandidate() {
         const data = await response.json();
         
         if (response.ok) {
+            // Store job title for shortlisting tab
+            storeJobTitleForShortlisting(jobTitle);
             // Show confirmation message instead of full results
             displayAnalysisConfirmation(data, jobTitle);
         } else {
@@ -390,6 +405,32 @@ async function analyzeCandidate() {
         }
     } finally {
         hideLoading();
+    }
+}
+
+// Store job title when analyzing (for use in Shortlisting tab)
+function storeJobTitleForShortlisting(jobTitle) {
+    currentJobTitle = jobTitle;
+    updateShortlistingJobTitleDisplay();
+}
+
+function updateShortlistingJobTitleDisplay() {
+    const displayEl = document.getElementById('currentJobTitleDisplay');
+    const hintEl = document.getElementById('shortlistJobTitleHint');
+    const loadBtn = document.getElementById('loadShortlistBtn');
+    
+    if (displayEl) {
+        if (currentJobTitle) {
+            displayEl.textContent = currentJobTitle;
+            displayEl.style.color = 'var(--success-color)';
+            if (hintEl) hintEl.style.display = 'none';
+            if (loadBtn) loadBtn.disabled = false;
+        } else {
+            displayEl.textContent = 'Not set - Please select a job title in the Analyze Candidate tab first';
+            displayEl.style.color = 'var(--text-secondary)';
+            if (hintEl) hintEl.style.display = 'block';
+            if (loadBtn) loadBtn.disabled = true;
+        }
     }
 }
 
@@ -879,6 +920,271 @@ function displayMarketInsights(data) {
     }
     
     resultDiv.style.display = 'block';
+}
+
+// ===== Shortlisting Functions =====
+
+async function loadShortlistCandidates() {
+    // Use stored job title from Analyze tab
+    if (!currentJobTitle) {
+        showAlert('shortlistContainer', 'Please select a job title in the Analyze Candidate tab first', 'warning');
+        return;
+    }
+    
+    const jobTitle = currentJobTitle;
+    showLoading();
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/shortlisting/candidates?job_title=${encodeURIComponent(jobTitle)}`);
+        const data = await response.json();
+        
+        if (response.ok && data.candidates && data.candidates.length > 0) {
+            shortlistQueue = data.candidates;
+            currentShortlistIndex = 0;
+            shortlistedCandidates = [];
+            
+            // Show container and controls
+            document.getElementById('shortlistContainer').style.display = 'block';
+            document.getElementById('shortlistControls').style.display = 'flex';
+            document.getElementById('shortlistEmpty').style.display = 'none';
+            
+            // Show first card
+            showShortlistCard();
+        } else {
+            document.getElementById('shortlistContainer').style.display = 'block';
+            document.getElementById('shortlistEmpty').style.display = 'block';
+            document.getElementById('shortlistControls').style.display = 'none';
+            document.getElementById('shortlistCard').style.display = 'none';
+            
+            const emptyDiv = document.getElementById('shortlistEmpty');
+            emptyDiv.innerHTML = '<p>No candidates found. Upload candidates first or try a different job title.</p>';
+        }
+    } catch (error) {
+        showAlert('shortlistContainer', `Error: ${error.message}`, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function showShortlistCard() {
+    if (currentShortlistIndex >= shortlistQueue.length) {
+        document.getElementById('shortlistCard').style.display = 'none';
+        document.getElementById('shortlistControls').style.display = 'none';
+        document.getElementById('shortlistEmpty').style.display = 'block';
+        displayShortlistedSummary();
+        return;
+    }
+    
+    const candidate = shortlistQueue[currentShortlistIndex];
+    const card = document.getElementById('shortlistCard');
+    
+    if (!card) return;
+    
+    const scoreClass = candidate.match_score >= 75 ? 'high' : candidate.match_score >= 50 ? 'medium' : 'low';
+    const ideal = candidate.ideal_profile || {};
+    const skillAnalysis = candidate.skill_analysis || {};
+    
+    // Get detailed scoring from analysis (if available from enhanced metadata)
+    const sectionScores = candidate.section_scores || {};
+    const quickJudgment = candidate.quick_judgment || {};
+    const candidateOverview = candidate.candidate_overview || '';
+    
+    card.innerHTML = `
+        <div class="shortlist-card-content">
+            <div class="shortlist-card-header">
+                <div>
+                    <h3>${candidate.name}</h3>
+                    ${candidateOverview ? `<p style="color: #666; font-size: 0.95rem; margin-top: 0.25rem;">${candidateOverview}</p>` : ''}
+                </div>
+                <div class="match-score ${scoreClass}" style="display: inline-block; padding: 0.5rem 1rem; border-radius: 20px; color: white; font-weight: bold; margin-left: 1rem;">
+                    ${candidate.match_score}/100
+                </div>
+            </div>
+            
+            ${quickJudgment && (quickJudgment.strength_1 || quickJudgment.concern_1) ? `
+            <div class="quick-judgment-box">
+                <div class="judgment-item positive">
+                    <span class="judgment-icon">💪</span>
+                    <div>
+                        <strong>Strengths:</strong>
+                        <div>${quickJudgment.strength_1 || ''}${quickJudgment.strength_2 ? ` • ${quickJudgment.strength_2}` : ''}</div>
+                    </div>
+                </div>
+                <div class="judgment-item negative">
+                    <span class="judgment-icon">⚠️</span>
+                    <div>
+                        <strong>Concerns:</strong>
+                        <div>${quickJudgment.concern_1 || ''}${quickJudgment.concern_2 ? ` • ${quickJudgment.concern_2}` : ''}</div>
+                    </div>
+                </div>
+            </div>
+            ` : ''}
+            
+            ${sectionScores && Object.keys(sectionScores).length > 0 ? `
+            <div class="section-scores-box">
+                <h4 style="margin-bottom: 0.75rem; color: var(--primary-color);">Score Breakdown</h4>
+                <div class="scores-grid">
+                    <div class="score-item">
+                        <span class="score-label">Experience</span>
+                        <div class="score-bar">
+                            <div class="score-fill" style="width: ${sectionScores.experience || 0}%"></div>
+                            <span class="score-value">${sectionScores.experience || 0}</span>
+                        </div>
+                    </div>
+                    <div class="score-item">
+                        <span class="score-label">Skills</span>
+                        <div class="score-bar">
+                            <div class="score-fill" style="width: ${sectionScores.skills || 0}%"></div>
+                            <span class="score-value">${sectionScores.skills || 0}</span>
+                        </div>
+                    </div>
+                    <div class="score-item">
+                        <span class="score-label">Education</span>
+                        <div class="score-bar">
+                            <div class="score-fill" style="width: ${sectionScores.education || 0}%"></div>
+                            <span class="score-value">${sectionScores.education || 0}</span>
+                        </div>
+                    </div>
+                    <div class="score-item">
+                        <span class="score-label">Overall Fit</span>
+                        <div class="score-bar">
+                            <div class="score-fill" style="width: ${sectionScores.overall_fit || 0}%"></div>
+                            <span class="score-value">${sectionScores.overall_fit || 0}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            ` : ''}
+            
+            <div class="shortlist-details">
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <span class="detail-label">📧 Email:</span>
+                        <span class="detail-value">${candidate.email}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">📍 Location:</span>
+                        <span class="detail-value">${candidate.location}</span>
+                    </div>
+                </div>
+                
+                <div class="detail-section">
+                    <h4>💼 Experience</h4>
+                    <div class="detail-row">
+                        <div class="detail-item">
+                            <span class="detail-label">Years of Experience:</span>
+                            <span class="detail-value highlight">${candidate.years_experience} years</span>
+                            ${ideal.years_experience_required ? `<span style="color: #666; font-size: 0.9rem;"> (Required: ${ideal.years_experience_required} years)</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="detail-section">
+                    <h4>🎓 Education</h4>
+                    ${candidate.education && candidate.education.length > 0 ? 
+                        candidate.education.map(edu => `
+                            <div class="detail-item">
+                                <span class="detail-value">${edu.degree} - ${edu.institution}</span>
+                                ${edu.field_of_study ? `<span style="color: #666; font-size: 0.9rem;"> (${edu.field_of_study})</span>` : ''}
+                            </div>
+                        `).join('') : 
+                        '<div class="detail-value">No education specified</div>'
+                    }
+                    ${ideal.education_requirements && ideal.education_requirements.length > 0 ? 
+                        `<div style="margin-top: 0.5rem; font-size: 0.85rem; color: #666;">
+                            <strong>Required:</strong> ${ideal.education_requirements.join(', ')}
+                        </div>` : ''
+                    }
+                </div>
+                
+                <div class="detail-section">
+                    <h4>✅ Must-Have Skills Match</h4>
+                    <div class="skill-match-bar">
+                        <div class="skill-match-fill" style="width: ${skillAnalysis.must_have_percentage || 0}%"></div>
+                        <span class="skill-match-text">${skillAnalysis.must_have_matches || 0}/${skillAnalysis.must_have_total || 0} (${skillAnalysis.must_have_percentage || 0}%)</span>
+                    </div>
+                    ${skillAnalysis.skill_gaps && skillAnalysis.skill_gaps.length > 0 ? `
+                        <div style="margin-top: 0.5rem; color: #e74c3c; font-size: 0.9rem;">
+                            <strong>Missing:</strong> ${skillAnalysis.skill_gaps.slice(0, 5).join(', ')}${skillAnalysis.skill_gaps.length > 5 ? '...' : ''}
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <div class="detail-section">
+                    <h4>🛠️ Key Skills</h4>
+                    <div class="skills-tags">
+                        ${(candidate.skills || []).slice(0, 10).map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
+                        ${candidate.skills && candidate.skills.length > 10 ? `<span class="skill-tag">+${candidate.skills.length - 10} more</span>` : ''}
+                    </div>
+                </div>
+                
+                ${candidate.key_matches && candidate.key_matches.length > 0 ? `
+                <div class="detail-section">
+                    <h4>✓ Key Matches</h4>
+                    <ul class="matches-list">
+                        ${candidate.key_matches.slice(0, 5).map(match => `<li>${match}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+                
+                ${candidate.gaps && candidate.gaps.length > 0 ? `
+                <div class="detail-section">
+                    <h4>⚠️ Skill Gaps</h4>
+                    <ul class="gaps-list">
+                        ${candidate.gaps.slice(0, 5).map(gap => `<li>${gap}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+    
+    card.style.display = 'block';
+}
+
+function shortlistCandidate() {
+    if (currentShortlistIndex >= shortlistQueue.length) return;
+    
+    const candidate = shortlistQueue[currentShortlistIndex];
+    shortlistedCandidates.push(candidate);
+    
+    currentShortlistIndex++;
+    showShortlistCard();
+}
+
+function rejectCandidate() {
+    currentShortlistIndex++;
+    showShortlistCard();
+}
+
+function displayShortlistedSummary() {
+    const summaryDiv = document.getElementById('shortlistedSummary');
+    const contentDiv = document.getElementById('shortlistedContent');
+    
+    if (!summaryDiv || !contentDiv) return;
+    
+    if (shortlistedCandidates.length === 0) {
+        summaryDiv.style.display = 'none';
+        return;
+    }
+    
+    contentDiv.innerHTML = `
+        <div class="result-card">
+            <h4>⭐ ${shortlistedCandidates.length} Candidate(s) Shortlisted</h4>
+            <div class="shortlisted-grid">
+                ${shortlistedCandidates.map(c => `
+                    <div class="shortlisted-item">
+                        <h5>${c.name}</h5>
+                        <p><strong>Match Score:</strong> ${c.match_score}/100</p>
+                        <p><strong>Experience:</strong> ${c.years_experience} years</p>
+                        <p><strong>Email:</strong> ${c.email}</p>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+    
+    summaryDiv.style.display = 'block';
 }
 
 // Utility Functions
