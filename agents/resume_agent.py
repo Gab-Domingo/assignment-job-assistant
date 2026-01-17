@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional
 from datetime import datetime
 from models.user_profile import (
     UserProfile, ScrapedJobData, JobSearchParams, ResumeAnalysisResult
@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import os
 import json
 from scraper import scrape_indeed_jobs
+from services.rag_service import RAGService
 
 
 class ResumeAnalyzer:
@@ -22,47 +23,82 @@ class ResumeAnalyzer:
         self,
         user_profile: UserProfile,
         job_params: JobSearchParams,
+        use_rag: bool = True,
     ) -> ResumeAnalysisResult:
         """
-        Main function to analyze resume against job description and generate tailored response
+        Main function to analyze resume against job description using RAG
         
         Args:
             user_profile: Structured user profile data
             job_params: Either URL or job title + location
-            application_question: Optional question to answer
+            use_rag: Whether to use RAG for ideal candidate matching (default: True)
         
         Returns:
             ResumeAnalysisResult
         """
         try:
-            # 1. Scrape job description
-            job_data = await scrape_indeed_jobs(search_params=job_params)
-        
+            ideal_profile_data = None
+            job_scraped_data = None
             
-            # Handle scraping result
-            if isinstance(job_data, object) and "error" in job_data:
-                print(f"Scraping returned error: {job_data['error']}")
-                # If scraping failed, use the search parameters to create a minimal job data
-                if job_params.job_title and job_params.location:
-                    job_scraped_data = ScrapedJobData(
+            # 1. Use RAG to find ideal candidate profiles instead of scraping
+            if use_rag and job_params.job_title:
+                try:
+                    rag_service = RAGService()
+                    
+                    # Search for ideal profiles based on job title
+                    query = job_params.job_title
+                    ideal_profiles = await rag_service.search_ideal_profiles(
+                        query=query,
                         job_title=job_params.job_title,
-                        job_description=f"Position for {job_params.job_title} in {job_params.location}. Full job details could not be retrieved."
+                        n_results=1
+                    )
+                    
+                    if ideal_profiles and len(ideal_profiles) > 0:
+                        ideal_profile_data = ideal_profiles[0]['profile']
+                        job_scraped_data = ScrapedJobData(
+                            job_title=ideal_profile_data.get('job_title', job_params.job_title),
+                            job_description=ideal_profile_data.get('job_description', '')
+                        )
+                        print(f"✅ Found ideal profile via RAG for: {job_params.job_title}")
+                    else:
+                        print(f"⚠️  No ideal profile found in RAG for: {job_params.job_title}, using fallback")
+                        # Fallback to minimal job data
+                        job_scraped_data = ScrapedJobData(
+                            job_title=job_params.job_title,
+                            job_description=f"Position for {job_params.job_title} in {job_params.location or 'N/A'}"
+                        )
+                except Exception as e:
+                    print(f"⚠️  RAG search failed: {str(e)}, falling back to scraping")
+                    use_rag = False  # Fall back to scraping
+            
+            # 2. Fallback to scraping if RAG not used or failed
+            if not use_rag or not job_scraped_data:
+                job_data = await scrape_indeed_jobs(search_params=job_params)
+                
+                # Handle scraping result
+                if isinstance(job_data, object) and "error" in job_data:
+                    print(f"Scraping returned error: {job_data['error']}")
+                    # If scraping failed, use the search parameters to create a minimal job data
+                    if job_params.job_title and job_params.location:
+                        job_scraped_data = ScrapedJobData(
+                            job_title=job_params.job_title,
+                            job_description=f"Position for {job_params.job_title} in {job_params.location}. Full job details could not be retrieved."
+                        )
+                    else:
+                        # If we don't have job params either, use default values
+                        job_scraped_data = ScrapedJobData(
+                            job_title="Software Engineer",  # Default title
+                            job_description="Generic software engineering position. Full job details could not be retrieved."
+                        )
+                elif isinstance(job_data, dict):
+                    # If we got a dict with actual job data
+                    job_scraped_data = ScrapedJobData(
+                        job_title=job_data.get("title") or job_params.job_title or "Software Engineer",
+                        job_description=job_data.get("description") or f"Position for {job_params.job_title} in {job_params.location}"
                     )
                 else:
-                    # If we don't have job params either, use default values
-                    job_scraped_data = ScrapedJobData(
-                        job_title="Software Engineer",  # Default title
-                        job_description="Generic software engineering position. Full job details could not be retrieved."
-                    )
-            elif isinstance(job_data, dict):
-                # If we got a dict with actual job data
-                job_scraped_data = ScrapedJobData(
-                    job_title=job_data.get("title") or job_params.job_title or "Software Engineer",
-                    job_description=job_data.get("description") or f"Position for {job_params.job_title} in {job_params.location}"
-                )
-            else:
-                # If we got a ScrapedJobData directly
-                job_scraped_data = job_data
+                    # If we got a ScrapedJobData directly
+                    job_scraped_data = job_data
 
 
             # 2. Format data for prompt
@@ -93,16 +129,23 @@ class ResumeAnalyzer:
             parsed_response = self._parse_llm_response(llm_response)
 
             # 6. Create result object
+            metadata = {
+                'job_title': job_scraped_data.job_title,
+                'job_description': job_scraped_data.job_description,
+                'analysis_timestamp': datetime.now().isoformat(),
+                'rag_used': use_rag
+            }
+            
+            # Include ideal profile data if available
+            if ideal_profile_data:
+                metadata['ideal_profile'] = ideal_profile_data
+            
             result = ResumeAnalysisResult(
                 match_score=parsed_response['match_score'],
                 suggestions=parsed_response['suggestions'],
                 key_matches=parsed_response['key_matches'],
                 gaps=parsed_response['gaps'],
-                metadata={
-                    'job_title': job_scraped_data.job_title,
-                    'job_description': job_scraped_data.job_description,
-                    'analysis_timestamp': datetime.now().isoformat()
-                }
+                metadata=metadata
             )
             print("\n=== Analyzing Resume and JD ===")
             print(result)

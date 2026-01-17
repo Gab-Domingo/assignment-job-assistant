@@ -303,6 +303,17 @@ body {
     box-shadow: var(--shadow-lg);
 }
 
+.btn-secondary {
+    background: var(--text-secondary);
+    color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: #4b5563;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
 /* ===== Results ===== */
 .result-section {
     margin-top: 2rem;
@@ -360,6 +371,30 @@ body {
     font-size: 1.1rem;
     font-weight: 600;
     color: var(--text-primary);
+}
+
+.info-box {
+    background: var(--bg-color);
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-color);
+    margin-top: 1rem;
+}
+
+.info-box h4 {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.ideal-profile-card {
+    transition: all 0.3s ease;
+}
+
+.ideal-profile-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+    border-color: var(--primary-color) !important;
 }
 
 .match-score {

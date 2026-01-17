@@ -24,6 +24,7 @@ function showTab(tabName) {
         loadCandidates();
     } else if (tabName === 'analyze') {
         populateCandidateDropdown();
+        loadAvailableProfiles(); // Always load ideal profiles when tab is shown
     } else if (tabName === 'analytics') {
         populateCandidateCheckboxes();
     }
@@ -335,12 +336,11 @@ async function loadCandidateDetails() {
     // Could show preview of candidate info here if needed
 }
 
-// Analyze Candidate
+// Analyze Candidate (using RAG) - Shows confirmation message
 async function analyzeCandidate() {
     const candidateId = document.getElementById('candidateSelect').value;
     const jobTitle = document.getElementById('jobTitle').value;
     const jobLocation = document.getElementById('jobLocation').value;
-    const jobUrl = document.getElementById('jobUrl').value;
     
     if (!candidateId) {
         showAlert('analyzeResult', 'Please select a candidate', 'warning');
@@ -352,13 +352,15 @@ async function analyzeCandidate() {
         return;
     }
     
+    // Show loading
     showLoading();
     
     try {
+        // RAG is enabled by default, pass use_rag=true explicitly
         const url = new URL(`${API_BASE_URL}/api/candidates/${candidateId}/analyze`);
         url.searchParams.append('job_title', jobTitle);
         if (jobLocation) url.searchParams.append('job_location', jobLocation);
-        if (jobUrl) url.searchParams.append('job_url', jobUrl);
+        url.searchParams.append('use_rag', 'true');
         
         const response = await fetch(url, {
             method: 'POST'
@@ -367,62 +369,136 @@ async function analyzeCandidate() {
         const data = await response.json();
         
         if (response.ok) {
-            displayAnalysisResult(data);
+            // Show confirmation message instead of full results
+            displayAnalysisConfirmation(data, jobTitle);
         } else {
             showAlert('analyzeResult', `Error: ${data.detail || 'Analysis failed'}`, 'error');
         }
     } catch (error) {
-        showAlert('analyzeResult', `Error: ${error.message}`, 'error');
+        const resultDiv = document.getElementById('analyzeResult');
+        const contentDiv = document.getElementById('analyzeResultContent');
+        
+        if (resultDiv && contentDiv) {
+            contentDiv.innerHTML = `
+                <div class="alert alert-error">
+                    Error: ${error.message}
+                </div>
+            `;
+            resultDiv.style.display = 'block';
+        } else {
+            showAlert('analyzeResult', `Error: ${error.message}`, 'error');
+        }
     } finally {
         hideLoading();
     }
 }
 
-function displayAnalysisResult(analysis) {
+// Display analysis confirmation message
+function displayAnalysisConfirmation(analysis, jobTitle) {
     const resultDiv = document.getElementById('analyzeResult');
     const contentDiv = document.getElementById('analyzeResultContent');
     
+    if (!resultDiv || !contentDiv) {
+        console.error('Result divs not found');
+        return;
+    }
+    
     const scoreClass = analysis.match_score >= 75 ? 'high' : analysis.match_score >= 50 ? 'medium' : 'low';
+    const scoreLabel = analysis.match_score >= 75 ? 'Excellent Match' : analysis.match_score >= 50 ? 'Good Match' : 'Needs Improvement';
     
     contentDiv.innerHTML = `
         <div class="result-card">
-            <h4>Match Score</h4>
+            <h4>✅ Analysis Complete</h4>
             <div style="text-align: center; margin: 1.5rem 0;">
                 <div class="match-score ${scoreClass}">${analysis.match_score}/100</div>
+                <p style="margin-top: 0.5rem; font-weight: 600; color: var(--text-primary);">${scoreLabel}</p>
             </div>
+            <p style="text-align: center; color: #666; margin-top: 1rem;">
+                Candidate has been analyzed against <strong>${jobTitle}</strong> ideal profile.
+            </p>
+            <p style="text-align: center; color: #27ae60; font-size: 0.9rem; margin-top: 0.5rem;">
+                🤖 Powered by RAG (Vector Database Matching)
+            </p>
         </div>
         
         <div class="result-card">
-            <div class="list-section">
-                <h5>✓ Key Matches</h5>
-                <ul>
-                    ${(analysis.key_matches || []).map(match => `<li>${match}</li>`).join('')}
-                </ul>
-            </div>
-        </div>
-        
-        ${analysis.gaps && analysis.gaps.length > 0 ? `
-        <div class="result-card">
-            <div class="list-section">
-                <h5>⚠️ Areas for Improvement</h5>
-                <ul>
-                    ${analysis.gaps.map(gap => `<li>${gap}</li>`).join('')}
-                </ul>
-            </div>
-        </div>
-        ` : ''}
-        
-        <div class="result-card">
-            <div class="list-section">
-                <h5>💡 Suggestions</h5>
-                <ul>
-                    ${(analysis.suggestions || []).map(suggestion => `<li>${suggestion}</li>`).join('')}
-                </ul>
+            <h5>Quick Summary</h5>
+            <div style="margin-top: 1rem;">
+                <p><strong>Key Matches:</strong> ${(analysis.key_matches || []).length} identified</p>
+                <p><strong>Skill Gaps:</strong> ${(analysis.gaps || []).length} areas for improvement</p>
+                <p><strong>Suggestions:</strong> ${(analysis.suggestions || []).length} recommendations provided</p>
             </div>
         </div>
     `;
     
     resultDiv.style.display = 'block';
+    // Scroll to result
+    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Load available ideal profiles (always shown)
+async function loadAvailableProfiles() {
+    const listDiv = document.getElementById('idealProfilesList');
+    
+    if (!listDiv) {
+        console.error('idealProfilesList element not found');
+        return;
+    }
+    
+    // Show loading state
+    listDiv.innerHTML = '<p style="color: #666;">Loading ideal profiles...</p>';
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/ideal-profiles`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            displayIdealProfiles(data);
+        } else {
+            listDiv.innerHTML = `<div class="alert alert-warning">Error: ${data.detail || 'Failed to load profiles'}</div>`;
+        }
+    } catch (error) {
+        listDiv.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+    }
+}
+
+function displayIdealProfiles(data) {
+    const listDiv = document.getElementById('idealProfilesList');
+    
+    if (!listDiv) {
+        console.error('idealProfilesList element not found');
+        return;
+    }
+    
+    const profiles = data.profiles || [];
+    const stats = data.stats || {};
+    
+    if (profiles.length === 0) {
+        listDiv.innerHTML = '<p style="color: #666;">No ideal profiles available. Profiles are loaded from ChromaDB.</p>';
+    } else {
+        listDiv.innerHTML = `
+            <p style="margin-bottom: 1rem; color: #666;">📊 <strong>${stats.profile_count || profiles.length}</strong> ideal profiles available</p>
+            <div class="ideal-profiles-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0.75rem; margin-top: 0.5rem;">
+                ${profiles.map(p => {
+                    const profile = p.profile || {};
+                    return `
+                        <div class="ideal-profile-card" style="background: #f8f9fa; padding: 0.75rem; border-radius: 8px; border: 1px solid #e0e0e0;">
+                            <div style="font-weight: bold; color: #2c3e50; margin-bottom: 0.25rem;">${profile.job_title || 'N/A'}</div>
+                            <div style="font-size: 0.85rem; color: #666;">
+                                ${profile.years_experience ? `${profile.years_experience} yrs exp` : ''}
+                                ${profile.must_have_skills && profile.must_have_skills.length ? ` • ${profile.must_have_skills.length} must-have skills` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    }
+}
+
+// This function is kept for backward compatibility but displayAnalysisConfirmation is used instead
+function displayAnalysisResult(analysis) {
+    displayAnalysisConfirmation(analysis, analysis.job_title || 'Unknown');
 }
 
 // ===== Analytics Sub-tabs =====

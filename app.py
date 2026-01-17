@@ -7,6 +7,7 @@ from typing import List, Optional
 from agents.resume_extractor import ResumeExtractor
 from agents.resume_agent import ResumeAnalyzer
 from models.user_profile import UserProfile, JobSearchParams
+from services.rag_service import RAGService
 from pydantic import BaseModel
 import json
 import uuid
@@ -158,9 +159,10 @@ async def analyze_candidate(
     candidate_id: str,
     job_title: str,
     job_location: Optional[str] = None,
-    job_url: Optional[str] = None
+    job_url: Optional[str] = None,
+    use_rag: bool = True
 ):
-    """Analyze a candidate against a job"""
+    """Analyze a candidate against a job using RAG"""
     if candidate_id not in candidates_store:
         raise HTTPException(status_code=404, detail="Candidate not found")
     
@@ -177,7 +179,8 @@ async def analyze_candidate(
         resume_analyzer = ResumeAnalyzer()
         analysis_result = await resume_analyzer.analyze_resume_and_jd(
             user_profile=profile,
-            job_params=job_params
+            job_params=job_params,
+            use_rag=use_rag
         )
         
         analysis_id = str(uuid.uuid4())
@@ -197,6 +200,46 @@ async def analyze_candidate(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+# ===== Ideal Candidate Profiles (RAG) =====
+
+@app.get("/api/ideal-profiles")
+async def list_ideal_profiles():
+    """List all ideal candidate profiles in ChromaDB"""
+    try:
+        rag_service = RAGService()
+        profiles = await rag_service.get_all_profiles()
+        stats = rag_service.get_collection_stats()
+        return {
+            "profiles": profiles,
+            "stats": stats
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ideal-profiles/search")
+async def search_ideal_profiles(
+    query: str,
+    job_title: Optional[str] = None,
+    n_results: int = 3
+):
+    """Search ideal candidate profiles using RAG"""
+    try:
+        rag_service = RAGService()
+        results = await rag_service.search_ideal_profiles(query, job_title, n_results)
+        return {"results": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/ideal-profiles/stats")
+async def get_ideal_profiles_stats():
+    """Get statistics about ideal candidate profiles collection"""
+    try:
+        rag_service = RAGService()
+        stats = rag_service.get_collection_stats()
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ===== Analytics =====
 

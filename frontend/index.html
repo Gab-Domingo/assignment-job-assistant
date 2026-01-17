@@ -102,7 +102,7 @@
             <!-- Analyze Candidate Tab -->
             <div id="analyze-tab" class="tab-panel">
                 <h2>Analyze Candidate</h2>
-                <p class="description">Analyze how well a candidate matches a specific job posting.</p>
+                <p class="description">Analyze how well a candidate matches an ideal candidate profile using AI-powered RAG matching.</p>
                 
                 <div class="form-section">
                     <div class="form-group">
@@ -115,25 +115,44 @@
                     <h3>Job Details</h3>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="jobTitle">Job Title:</label>
-                            <input type="text" id="jobTitle" placeholder="e.g., Senior Software Engineer" required>
+                            <label for="jobTitle">Job Title: <span style="color: #666; font-size: 0.9rem;">(e.g., Software Engineer, Data Scientist)</span></label>
+                            <input type="text" id="jobTitle" placeholder="e.g., Software Engineer" required list="jobTitles">
+                            <datalist id="jobTitles">
+                                <option value="Software Engineer">
+                                <option value="Senior Software Engineer">
+                                <option value="Full Stack Developer">
+                                <option value="Data Scientist">
+                                <option value="Product Manager">
+                                <option value="DevOps Engineer">
+                                <option value="UI/UX Designer">
+                                <option value="Marketing Manager">
+                                <option value="Business Analyst">
+                                <option value="Project Manager">
+                            </datalist>
                         </div>
                         <div class="form-group">
-                            <label for="jobLocation">Location:</label>
+                            <label for="jobLocation">Location: <span style="color: #666; font-size: 0.9rem;">(optional)</span></label>
                             <input type="text" id="jobLocation" placeholder="e.g., San Francisco, CA">
                         </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label>Or use Job URL (optional):</label>
-                        <input type="url" id="jobUrl" placeholder="https://...">
+                    <!-- Always show Available Ideal Profiles -->
+                    <div id="idealProfilesInfo" class="info-box" style="margin-top: 1.5rem;">
+                        <h4>Available Ideal Profiles</h4>
+                        <div id="idealProfilesList">
+                            <p style="color: #666;">Loading ideal profiles...</p>
+                        </div>
                     </div>
                     
-                    <button class="btn btn-primary" onclick="analyzeCandidate()">
-                        Analyze Match
-                    </button>
+                    <!-- Analyze button at bottom -->
+                    <div class="form-group" style="margin-top: 2rem; text-align: center;">
+                        <button class="btn btn-primary" onclick="analyzeCandidate()">
+                            🔍 Analyze Match with RAG
+                        </button>
+                    </div>
                 </div>
 
+                <!-- Analysis confirmation/result -->
                 <div id="analyzeResult" class="result-section" style="display: none;">
                     <h3>Analysis Results</h3>
                     <div id="analyzeResultContent"></div>
@@ -236,7 +255,7 @@
 
         <!-- Footer -->
         <footer class="footer">
-            <p>Powered by Google Gemini AI & Google Cloud Vision API</p>
+            <p>Powered by Google Gemini AI • Google Cloud Vision API • ChromaDB RAG</p>
             <p class="footer-links">
                 <a href="/docs" target="_blank">API Docs</a> •
                 <a href="https://github.com" target="_blank">GitHub</a>
